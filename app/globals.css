@@ -1,6 +1,4 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
 
 /* ── Berean Design Tokens ── */
 :root {
@@ -22,16 +20,13 @@
   --red:         #f87171;
 }
 
-/* ── Base ── */
-* { box-sizing: border-box; margin: 0; padding: 0; }
-
-html { height: 100%; }
-
+/* ── Base reset ── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; }
 body {
   background: var(--bg);
   color: var(--text);
-  font-family: 'Georgia', serif;
-  height: 100%;
+  font-family: Georgia, 'Times New Roman', serif;
   -webkit-font-smoothing: antialiased;
 }
 
@@ -40,11 +35,7 @@ body {
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: rgba(201,168,76,0.2); border-radius: 2px; }
 
-/* ── Fonts via next/font or system fallbacks ── */
-.font-mono { font-family: 'JetBrains Mono', 'Consolas', monospace; }
-.font-serif { font-family: 'Georgia', 'Times New Roman', serif; }
-
-/* ── Prose formatting in devotion content ── */
+/* ── Prose ── */
 .berean-prose h3 {
   font-family: 'JetBrains Mono', monospace;
   font-size: 0.65rem;
@@ -53,9 +44,9 @@ body {
   color: var(--gold);
   margin: 1rem 0 0.4rem;
 }
-.berean-prose p { 
-  font-size: 0.95rem; 
-  line-height: 1.75; 
+.berean-prose p {
+  font-size: 0.95rem;
+  line-height: 1.75;
   color: var(--text);
   margin-bottom: 0.6rem;
 }
@@ -90,26 +81,16 @@ body {
 
 /* ── Animations ── */
 @keyframes pulse-gold {
-  0%,100% { opacity: 1; }
-  50%      { opacity: 0.3; }
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.3; }
 }
 @keyframes thinking {
-  0%,100% { opacity: 0.2; transform: scale(0.8); }
-  50%     { opacity: 1;   transform: scale(1.2); }
+  0%, 100% { opacity: 0.2; transform: scale(0.8); }
+  50%      { opacity: 1;   transform: scale(1.2); }
 }
 @keyframes fade-up {
   from { opacity: 0; transform: translateY(8px); }
   to   { opacity: 1; transform: translateY(0); }
 }
-@keyframes slide-in-right {
-  from { transform: translateX(100%); }
-  to   { transform: translateX(0); }
-}
-@keyframes slide-in-left {
-  from { transform: translateX(-100%); }
-  to   { transform: translateX(0); }
-}
 
-.animate-fade-up    { animation: fade-up 0.3s ease forwards; }
-.animate-slide-right { animation: slide-in-right 0.3s cubic-bezier(0.4,0,0.2,1) forwards; }
-.animate-slide-left  { animation: slide-in-left  0.3s cubic-bezier(0.4,0,0.2,1) forwards; }
+.animate-fade-up { animation: fade-up 0.3s ease forwards; }
