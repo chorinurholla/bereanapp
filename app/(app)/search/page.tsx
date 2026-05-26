@@ -3,253 +3,218 @@
 import { useState, useEffect, useMemo } from 'react'
 import type { CorpusChapter } from '@/lib/corpus'
 import { tokenize } from '@/lib/corpus'
-import { Search, BookOpen } from 'lucide-react'
 
-interface PrincipleResult {
-  chapterId: string
-  book: string
-  testament: string
-  reference: string
-  chapterTitle: string
-  principleIndex: number
-  principleTitle: string
-  application: string
-  verseRef: string
-  themes: string[]
-  godShot: string
+interface Result {
+  chapterId: string; book: string; testament: string; reference: string
+  chapterTitle: string; idx: number; title: string
+  application: string; verseRef: string; themes: string[]; godShot: string
 }
 
 export default function SearchPage() {
-  const [corpus,  setCorpus]  = useState<CorpusChapter[]>([])
-  const [query,   setQuery]   = useState('')
-  const [filter,  setFilter]  = useState<'all'|'OT'|'NT'>('all')
-  const [expanded, setExpanded] = useState<string | null>(null)
+  const [corpus,   setCorpus]   = useState<CorpusChapter[]>([])
+  const [query,    setQuery]    = useState('')
+  const [filter,   setFilter]   = useState<'all'|'OT'|'NT'>('all')
+  const [expanded, setExpanded] = useState<string|null>(null)
 
   useEffect(() => {
     fetch('/corpus.json').then(r => r.json()).then(setCorpus).catch(console.error)
   }, [])
 
-  // Flatten all principles into a searchable list
-  const allPrinciples = useMemo<PrincipleResult[]>(() => {
-    const results: PrincipleResult[] = []
+  const all = useMemo<Result[]>(() => {
+    const out: Result[] = []
     corpus.forEach(ch => {
       ch.principles.forEach((p, i) => {
-        const title = typeof p === 'object' ? p.title : String(p)
-        const app   = typeof p === 'object' ? (p.application || '') : ''
-        const vref  = typeof p === 'object' ? (p.verse_reference || '') : ''
-        results.push({
-          chapterId:      ch.id,
-          book:           ch.book,
-          testament:      ch.testament,
-          reference:      ch.reference || ch.ref || '',
-          chapterTitle:   ch.chapter_title || ch.title || '',
-          principleIndex: i,
-          principleTitle: title,
-          application:    app,
-          verseRef:       vref,
-          themes:         ch.themes,
-          godShot:        ch.god_shot || ch.godShot || '',
-        })
+        const t = typeof p === 'object' ? p.title : String(p)
+        const a = typeof p === 'object' ? (p.application || '') : ''
+        const v = typeof p === 'object' ? (p.verse_reference || '') : ''
+        out.push({ chapterId: ch.id, book: ch.book, testament: ch.testament,
+          reference: ch.reference || ch.ref || '', chapterTitle: ch.chapter_title || ch.title || '',
+          idx: i, title: t, application: a, verseRef: v, themes: ch.themes,
+          godShot: ch.god_shot || ch.godShot || '' })
       })
     })
-    return results
+    return out
   }, [corpus])
 
   const results = useMemo(() => {
-    let pool = filter === 'all' ? allPrinciples : allPrinciples.filter(p => p.testament === filter)
-    if (!query.trim()) return pool.slice(0, 60)
-
+    let pool = filter === 'all' ? all : all.filter(p => p.testament === filter)
+    if (!query.trim()) return pool.slice(0, 50)
     const tokens = tokenize(query)
-    if (!tokens.length) return pool.slice(0, 60)
-
-    return pool
-      .map(p => {
-        const haystack = (p.principleTitle + ' ' + p.application + ' ' + p.book + ' ' + p.themes.join(' ')).toLowerCase()
-        let score = 0
-        tokens.forEach(t => {
-          const re = new RegExp(t, 'gi')
-          score += (p.principleTitle.toLowerCase().match(re) || []).length * 4
-          score += (p.application.toLowerCase().match(re)   || []).length * 1.5
-          score += p.themes.some(th => th.includes(t)) ? 3 : 0
-          score += p.book.toLowerCase().includes(t) ? 2 : 0
-        })
-        return { p, score }
+    if (!tokens.length) return pool.slice(0, 50)
+    return pool.map(p => {
+      const h = (p.title + ' ' + p.application + ' ' + p.book + ' ' + p.themes.join(' ')).toLowerCase()
+      let s = 0
+      tokens.forEach(t => {
+        const re = new RegExp(t, 'gi')
+        s += (p.title.toLowerCase().match(re) || []).length * 4
+        s += (p.application.toLowerCase().match(re) || []).length * 1.5
+        s += p.themes.some(th => th.includes(t)) ? 3 : 0
+        s += p.book.toLowerCase().includes(t) ? 2 : 0
       })
-      .filter(x => x.score > 0)
-      .sort((a, b) => b.score - a.score)
-      .slice(0, 80)
-      .map(x => x.p)
-  }, [allPrinciples, query, filter])
+      return { p, s }
+    }).filter(x => x.s > 0).sort((a,b) => b.s - a.s).slice(0, 80).map(x => x.p)
+  }, [all, query, filter])
 
   const stats = useMemo(() => ({
-    total: allPrinciples.length,
-    OT:    allPrinciples.filter(p => p.testament === 'OT').length,
-    NT:    allPrinciples.filter(p => p.testament === 'NT').length,
-  }), [allPrinciples])
-
-  const toggleExpand = (key: string) =>
-    setExpanded(prev => prev === key ? null : key)
+    total: all.length,
+    OT: all.filter(p => p.testament === 'OT').length,
+    NT: all.filter(p => p.testament === 'NT').length,
+  }), [all])
 
   return (
-    <div className="flex flex-col h-full">
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
 
       {/* Search header */}
-      <div className="px-4 py-4 flex-shrink-0"
-           style={{ borderBottom: '1px solid var(--border)', background: 'var(--surface)' }}>
-        <h2 className="font-mono text-[0.65rem] tracking-[0.2em] uppercase mb-3"
-            style={{ color: 'var(--gold)' }}>
+      <div style={{
+        padding: '24px 32px 20px',
+        background: 'var(--paper)',
+        borderBottom: '1px solid var(--rule)',
+        flexShrink: 0,
+      }}>
+        <h1 style={{ fontFamily: "'Playfair Display', serif", fontSize: '24px',
+          fontWeight: 500, color: 'var(--ink)', marginBottom: '16px' }}>
           Principle Search
-        </h2>
+        </h1>
 
         {/* Search input */}
-        <div className="relative mb-3">
-          <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2"
-                  style={{ color: 'var(--text-mute)' }} />
+        <div style={{ position: 'relative', marginBottom: '16px' }}>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+            strokeWidth="2" style={{ position: 'absolute', left: '14px', top: '50%',
+            transform: 'translateY(-50%)', color: 'var(--ink5)', pointerEvents: 'none' }}>
+            <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+          </svg>
           <input
-            type="text"
-            value={query}
-            onChange={e => setQuery(e.target.value)}
-            placeholder="Search across all 5,956 principles…"
-            className="w-full pl-9 pr-4 py-2.5 text-sm outline-none"
-            style={{
-              background: 'var(--surface2)', border: '1px solid var(--border)',
-              color: 'var(--text)', fontFamily: 'Georgia, serif',
-            }}
-            onFocus={e => e.target.style.borderColor = 'rgba(201,168,76,0.4)'}
-            onBlur={e  => e.target.style.borderColor = 'var(--border)'}
+            type="text" value={query} onChange={e => setQuery(e.target.value)}
+            placeholder="Search 5,956 principles across 66 books…"
+            className="input-field"
+            style={{ paddingLeft: '42px', paddingRight: '16px', paddingTop: '13px',
+              paddingBottom: '13px', fontSize: '15px' }}
             autoFocus
           />
         </div>
 
-        {/* Filter tabs */}
-        <div className="flex gap-2 items-center">
-          {(['all', 'OT', 'NT'] as const).map(f => (
-            <button
-              key={f}
-              onClick={() => setFilter(f)}
-              className="px-3 py-1 font-mono text-[0.55rem] tracking-[0.1em] uppercase cursor-pointer transition-all"
-              style={{
-                border: `1px solid ${filter === f ? 'var(--gold)' : 'var(--border2)'}`,
-                background: filter === f ? 'var(--gold-dim)' : 'transparent',
-                color: filter === f ? 'var(--gold)' : 'var(--text-mute)',
-              }}
-            >
-              {f === 'all' ? `All (${stats.total})` : f === 'OT' ? `OT (${stats.OT})` : `NT (${stats.NT})`}
+        {/* Filter row */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+          {([['all', `All  ${stats.total.toLocaleString()}`],
+             ['OT',  `Old Testament  ${stats.OT.toLocaleString()}`],
+             ['NT',  `New Testament  ${stats.NT.toLocaleString()}`]] as const)
+          .map(([f, label]) => (
+            <button key={f} onClick={() => setFilter(f as typeof filter)}
+              className={'btn btn-outline' + (filter === f ? ' on' : '')}
+              style={{ padding: '6px 16px', fontSize: '12px', borderRadius: '100px' }}>
+              {label}
             </button>
           ))}
-          <span className="font-mono text-[0.5rem] ml-auto" style={{ color: 'var(--text-mute)' }}>
-            {query ? `${results.length} results` : `Showing ${results.length}`}
-          </span>
+          {query && (
+            <span style={{ marginLeft: 'auto', fontFamily: 'DM Sans, sans-serif',
+              fontSize: '12px', color: 'var(--ink5)' }}>
+              {results.length} result{results.length !== 1 ? 's' : ''}
+            </span>
+          )}
         </div>
       </div>
 
       {/* Results */}
-      <div className="flex-1 overflow-y-auto">
+      <div style={{ flex: 1, overflowY: 'auto' }}>
         {corpus.length === 0 ? (
-          <div className="flex items-center justify-center h-32">
-            <span className="font-mono text-[0.6rem]" style={{ color: 'var(--text-mute)' }}>
-              Loading corpus…
-            </span>
+          <div style={{ padding: '60px', textAlign: 'center', color: 'var(--ink5)',
+            fontFamily: 'DM Sans, sans-serif', fontSize: '14px' }}>
+            Loading corpus…
           </div>
         ) : results.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-32 gap-2">
-            <span className="font-mono text-[0.6rem]" style={{ color: 'var(--text-mute)' }}>
-              No principles found for &ldquo;{query}&rdquo;
-            </span>
+          <div style={{ padding: '60px', textAlign: 'center', color: 'var(--ink5)',
+            fontFamily: 'DM Sans, sans-serif', fontSize: '14px' }}>
+            No principles found for &ldquo;{query}&rdquo;
           </div>
         ) : (
-          results.map((r, idx) => {
-            const key = `${r.chapterId}-${r.principleIndex}`
-            const isOpen = expanded === key
+          results.map((r, i) => {
+            const key = `${r.chapterId}-${r.idx}`
+            const open = expanded === key
             return (
-              <div
-                key={key}
-                className="cursor-pointer transition-colors"
-                style={{ borderBottom: '1px solid var(--border)' }}
-                onClick={() => toggleExpand(key)}
-              >
-                <div className="px-4 py-3"
-                     style={{ background: isOpen ? 'var(--surface2)' : 'transparent' }}>
+              <div key={key} className={'search-row' + (open ? ' open' : '')}
+                onClick={() => setExpanded(open ? null : key)}>
 
-                  {/* Ref + testament badge */}
-                  <div className="flex items-center gap-2 mb-1">
-                    <span className="font-mono text-[0.55rem] tracking-[0.12em]"
-                          style={{ color: 'var(--gold)', opacity: 0.8 }}>
-                      {r.reference}
-                    </span>
-                    <span className="font-mono text-[0.45rem] px-1.5 py-0.5"
-                          style={{
-                            background: r.testament === 'NT' ? 'rgba(74,143,255,0.08)' : 'rgba(201,168,76,0.08)',
-                            border: `1px solid ${r.testament === 'NT' ? 'rgba(74,143,255,0.2)' : 'rgba(201,168,76,0.2)'}`,
-                            color: r.testament === 'NT' ? 'rgba(74,143,255,0.7)' : 'rgba(201,168,76,0.6)',
-                          }}>
-                      {r.testament}
-                    </span>
-                    <span className="font-mono text-[0.45rem]" style={{ color: 'var(--text-mute)' }}>
-                      {r.book}
-                    </span>
-                    <span className="ml-auto font-mono text-[0.45rem]" style={{ color: 'var(--text-mute)' }}>
-                      #{idx + 1}
-                    </span>
-                  </div>
-
-                  {/* Principle title */}
-                  <p className="text-sm font-medium leading-snug"
-                     style={{ color: 'var(--text)', fontFamily: 'Georgia, serif' }}>
-                    {r.principleTitle}
-                  </p>
-
-                  {/* Themes */}
-                  {r.themes.length > 0 && (
-                    <div className="flex gap-1.5 mt-1.5 flex-wrap">
-                      {r.themes.slice(0, 4).map(t => (
-                        <span key={t} className="font-mono text-[0.45rem] tracking-[0.08em]"
-                              style={{ color: 'var(--text-mute)' }}>
-                          {t}
-                        </span>
-                      ))}
-                    </div>
-                  )}
-
-                  {/* Expanded content */}
-                  {isOpen && (
-                    <div className="mt-3 space-y-2.5 animate-fade-up">
-                      {r.verseRef && (
-                        <p className="text-xs italic" style={{ color: 'var(--text-dim)' }}>
-                          {r.verseRef}
-                        </p>
-                      )}
-                      {r.application && (
-                        <div>
-                          <div className="font-mono text-[0.5rem] tracking-[0.15em] uppercase mb-1"
-                               style={{ color: 'var(--gold)', opacity: 0.7 }}>
-                            Application
-                          </div>
-                          <p className="text-xs leading-relaxed" style={{ color: 'var(--text-dim)' }}>
-                            {r.application}
-                          </p>
-                        </div>
-                      )}
-                      {r.godShot && (
-                        <div className="pl-3" style={{ borderLeft: '2px solid var(--gold)' }}>
-                          <div className="font-mono text-[0.5rem] tracking-[0.15em] uppercase mb-1"
-                               style={{ color: 'var(--gold)', opacity: 0.7 }}>
-                            God Shot
-                          </div>
-                          <p className="text-xs italic leading-relaxed" style={{ color: 'var(--text-dim)' }}>
-                            {r.godShot.substring(0, 200)}{r.godShot.length > 200 ? '…' : ''}
-                          </p>
-                        </div>
-                      )}
-                      <div className="flex items-center gap-1.5 pt-1">
-                        <BookOpen size={10} style={{ color: 'var(--text-mute)' }} />
-                        <span className="font-mono text-[0.5rem]" style={{ color: 'var(--text-mute)' }}>
-                          {r.chapterTitle}
-                        </span>
-                      </div>
-                    </div>
-                  )}
+                {/* Reference + testament */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px',
+                  marginBottom: '6px' }}>
+                  <span style={{ fontFamily: 'DM Sans, sans-serif', fontSize: '11px',
+                    fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase',
+                    color: 'var(--gold2)' }}>
+                    {r.reference}
+                  </span>
+                  <span style={{
+                    fontFamily: 'DM Sans, sans-serif', fontSize: '9px', fontWeight: 600,
+                    letterSpacing: '0.1em', textTransform: 'uppercase',
+                    padding: '2px 8px', borderRadius: '100px',
+                    background: r.testament === 'NT' ? 'rgba(42,61,106,0.08)' : 'var(--gold-bg)',
+                    color: r.testament === 'NT' ? 'var(--sapphire)' : 'var(--gold)',
+                    border: `1px solid ${r.testament === 'NT' ? 'rgba(42,61,106,0.2)' : 'rgba(138,109,53,0.2)'}`,
+                  }}>
+                    {r.testament === 'NT' ? 'NT' : 'OT'}
+                  </span>
+                  <span style={{ fontFamily: 'DM Sans, sans-serif', fontSize: '11px',
+                    color: 'var(--ink5)' }}>{r.book}</span>
+                  <span style={{ marginLeft: 'auto', fontFamily: 'DM Sans, sans-serif',
+                    fontSize: '11px', color: 'var(--ink5)', flexShrink: 0 }}>
+                    #{(i+1).toLocaleString()}
+                  </span>
                 </div>
+
+                {/* Principle title */}
+                <p style={{ fontFamily: "'Source Serif 4', serif", fontSize: '16px',
+                  fontWeight: 400, color: 'var(--ink)', lineHeight: 1.55,
+                  marginBottom: r.themes.length ? '8px' : 0 }}>
+                  {r.title}
+                </p>
+
+                {/* Themes */}
+                {r.themes.length > 0 && (
+                  <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                    {r.themes.slice(0, 5).map(t => (
+                      <span key={t} style={{ fontFamily: 'DM Sans, sans-serif', fontSize: '10px',
+                        color: 'var(--ink5)', padding: '2px 8px', background: 'var(--paper2)',
+                        border: '1px solid var(--rule)', borderRadius: '100px' }}>{t}</span>
+                    ))}
+                  </div>
+                )}
+
+                {/* Expanded content */}
+                {open && (
+                  <div className="fade-in" style={{ marginTop: '16px', paddingTop: '16px',
+                    borderTop: '1px solid var(--rule)' }}>
+                    {r.verseRef && (
+                      <p style={{ fontFamily: "'Source Serif 4', serif", fontSize: '14px',
+                        fontStyle: 'italic', color: 'var(--ink4)', marginBottom: '12px' }}>
+                        {r.verseRef}
+                      </p>
+                    )}
+                    {r.application && (
+                      <div style={{ marginBottom: '14px' }}>
+                        <div style={{ fontFamily: 'DM Sans, sans-serif', fontSize: '9px', fontWeight: 600,
+                          letterSpacing: '0.16em', textTransform: 'uppercase', color: 'var(--gold)',
+                          marginBottom: '6px' }}>Application</div>
+                        <p style={{ fontFamily: "'Source Serif 4', serif", fontSize: '15px',
+                          lineHeight: 1.7, color: 'var(--ink3)' }}>{r.application}</p>
+                      </div>
+                    )}
+                    {r.godShot && (
+                      <div style={{ padding: '14px 18px', background: 'var(--gold-bg)',
+                        borderLeft: '3px solid var(--gold2)', marginBottom: '10px' }}>
+                        <div style={{ fontFamily: 'DM Sans, sans-serif', fontSize: '9px', fontWeight: 600,
+                          letterSpacing: '0.16em', textTransform: 'uppercase', color: 'var(--gold)',
+                          marginBottom: '6px' }}>God Shot</div>
+                        <p style={{ fontFamily: "'Source Serif 4', serif", fontSize: '14px',
+                          fontStyle: 'italic', lineHeight: 1.7, color: 'var(--ink3)', margin: 0 }}>
+                          {r.godShot.substring(0, 220)}{r.godShot.length > 220 ? '…' : ''}
+                        </p>
+                      </div>
+                    )}
+                    <div style={{ fontFamily: 'DM Sans, sans-serif', fontSize: '11px',
+                      color: 'var(--ink5)', fontStyle: 'italic' }}>
+                      {r.chapterTitle}
+                    </div>
+                  </div>
+                )}
               </div>
             )
           })

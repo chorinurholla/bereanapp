@@ -3,183 +3,199 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
-import Link from 'next/link'
 import { toast } from 'sonner'
 
 export default function LoginPage() {
-  const [tab,      setTab]      = useState<'signin'|'signup'>('signin')
-  const [email,    setEmail]    = useState('')
-  const [password, setPassword] = useState('')
-  const [name,     setName]     = useState('')
-  const [occ,      setOcc]      = useState('')
-  const [loading,  setLoading]  = useState(false)
+  const [tab,  setTab]  = useState<'in'|'up'>('in')
+  const [f,    setF]    = useState({ email:'', password:'', name:'', occ:'' })
+  const [busy, setBusy] = useState(false)
   const router = useRouter()
   const sb = createClient()
+  const upd = (k: string) => (e: React.ChangeEvent<HTMLInputElement>) => setF(p => ({...p,[k]:e.target.value}))
 
-  const signIn = async (e: React.FormEvent) => {
+  const submit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!email || !password) { toast.error('Email and password required'); return }
-    setLoading(true)
+    if (!f.email || !f.password) { toast.error('Email and password required'); return }
+    if (tab === 'up' && f.password.length < 6) { toast.error('Password must be at least 6 characters'); return }
+    setBusy(true)
     try {
-      const { error } = await sb.auth.signInWithPassword({ email, password })
-      if (error) throw error
-      router.push('/devotion')
-    } catch (err: unknown) {
-      toast.error((err as { message?: string })?.message || 'Sign in failed')
-      setLoading(false)
-    }
-  }
-
-  const signUp = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!email || !password) { toast.error('Email and password required'); return }
-    if (password.length < 6)  { toast.error('Password must be at least 6 characters'); return }
-    setLoading(true)
-    try {
-      const { data, error } = await sb.auth.signUp({ email, password })
-      if (error) throw error
-      if (data.user) {
-        await sb.from('user_profiles').upsert({
-          id: data.user.id, email,
-          name: name || email.split('@')[0],
-          occupation: occ || '', api_key: '',
-          created_at: new Date().toISOString(),
-        }, { onConflict: 'id' })
+      if (tab === 'in') {
+        const { error } = await sb.auth.signInWithPassword({ email: f.email, password: f.password })
+        if (error) throw error
+        router.push('/devotion')
+      } else {
+        const { data, error } = await sb.auth.signUp({ email: f.email, password: f.password })
+        if (error) throw error
+        if (data.user) {
+          await sb.from('user_profiles').upsert({
+            id: data.user.id, email: f.email,
+            name: f.name || f.email.split('@')[0],
+            occupation: f.occ || '', api_key: '',
+            created_at: new Date().toISOString(),
+          }, { onConflict: 'id' })
+        }
+        if (data.session) router.push('/devotion')
+        else { toast.success('Check your email to confirm, then sign in.'); setTab('in') }
       }
-      if (data.session) router.push('/devotion')
-      else { toast.success('Check your email to confirm your account, then sign in.'); setTab('signin') }
     } catch (err: unknown) {
-      toast.error((err as { message?: string })?.message || 'Sign up failed')
-      setLoading(false)
+      toast.error((err as {message?:string})?.message || 'Something went wrong')
+      setBusy(false)
     }
-  }
-
-  const forgot = async () => {
-    if (!email) { toast.error('Enter your email first'); return }
-    const { error } = await sb.auth.resetPasswordForEmail(email)
-    if (error) toast.error(error.message)
-    else toast.success('Password reset email sent')
   }
 
   return (
     <div style={{
-      minHeight: '100vh', background: 'var(--parchment)',
-      display: 'flex', alignItems: 'center', justifyContent: 'center',
-      padding: '24px',
-      backgroundImage: 'radial-gradient(ellipse at 20% 50%, rgba(154,123,58,0.06) 0%, transparent 60%), radial-gradient(ellipse at 80% 20%, rgba(42,61,90,0.04) 0%, transparent 60%)',
+      minHeight: '100vh', display: 'flex',
+      background: 'var(--paper)',
     }}>
-      <div style={{ width: '100%', maxWidth: '420px' }}>
-
-        {/* Header */}
-        <div style={{ textAlign: 'center', marginBottom: '40px' }}>
-          <h1 style={{ fontFamily: "'Cinzel', serif", fontSize: '32px', fontWeight: 500,
-            letterSpacing: '0.25em', color: 'var(--gold)', marginBottom: '8px' }}>
-            BEREAN
-          </h1>
-          <p style={{ fontFamily: 'Inter, sans-serif', fontSize: '0.65rem', letterSpacing: '0.2em',
-            textTransform: 'uppercase', color: 'var(--ink-mute)', fontWeight: 500 }}>
+      {/* Left panel — branding */}
+      <div style={{
+        width: '420px', flexShrink: 0,
+        background: 'var(--ink)',
+        padding: '60px 48px',
+        display: 'flex', flexDirection: 'column',
+        justifyContent: 'space-between',
+      }} className="hide-on-small">
+        <div>
+          <div style={{ fontFamily: "'Playfair Display', serif", fontSize: '32px',
+            fontWeight: 500, color: 'white', letterSpacing: '0.04em', marginBottom: '8px' }}>
+            Bere<span style={{ color: 'var(--gold3)' }}>an</span>
+          </div>
+          <div style={{ fontFamily: 'DM Sans, sans-serif', fontSize: '12px', fontWeight: 400,
+            letterSpacing: '0.14em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.45)',
+            marginBottom: '48px' }}>
             Biblical Principles Corpus
+          </div>
+
+          <p style={{ fontFamily: "'Source Serif 4', serif", fontSize: '19px',
+            lineHeight: 1.8, color: 'rgba(255,255,255,0.75)', fontStyle: 'italic',
+            marginBottom: '40px', maxWidth: '300px' }}>
+            "Every chapter of Scripture. One transferable principle. Grounded in the story."
           </p>
-          <div style={{ marginTop: '16px', display: 'flex', justifyContent: 'center', gap: '24px' }}>
-            {[['66', 'Books'], ['960', 'Chapters'], ['5,956', 'Principles']].map(([n, l]) => (
-              <div key={l} style={{ textAlign: 'center' }}>
-                <div style={{ fontFamily: "'Cinzel', serif", fontSize: '16px', color: 'var(--gold)', fontWeight: 500 }}>{n}</div>
-                <div style={{ fontFamily: 'Inter, sans-serif', fontSize: '0.5rem', letterSpacing: '0.12em',
-                  textTransform: 'uppercase', color: 'var(--ink-mute)', marginTop: '2px' }}>{l}</div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+            {[['66', 'Books of the Bible'],
+              ['960', 'Chapters documented'],
+              ['5,956', 'Timeless principles']].map(([n, l]) => (
+              <div key={l} style={{ display: 'flex', alignItems: 'baseline', gap: '12px' }}>
+                <span style={{ fontFamily: "'Playfair Display', serif", fontSize: '28px',
+                  fontWeight: 500, color: 'var(--gold3)', lineHeight: 1 }}>{n}</span>
+                <span style={{ fontFamily: 'DM Sans, sans-serif', fontSize: '13px',
+                  color: 'rgba(255,255,255,0.5)' }}>{l}</span>
               </div>
             ))}
           </div>
         </div>
 
-        {/* Card */}
-        <div className="card" style={{ background: 'white', overflow: 'hidden' }}>
-
-          {/* Tabs */}
-          <div style={{ display: 'flex', borderBottom: '1px solid var(--border)' }}>
-            {(['signin', 'signup'] as const).map(t => (
-              <button key={t} onClick={() => setTab(t)} style={{
-                flex: 1, padding: '14px 0',
-                background: tab === t ? 'white' : 'var(--parchment)',
-                border: 'none',
-                borderBottom: tab === t ? '2px solid var(--gold2)' : '2px solid transparent',
-                fontFamily: 'Inter, sans-serif', fontSize: '0.65rem',
-                letterSpacing: '0.14em', textTransform: 'uppercase', fontWeight: 600,
-                color: tab === t ? 'var(--gold)' : 'var(--ink-mute)',
-                cursor: 'pointer', marginBottom: '-1px', transition: 'all 0.15s',
-              }}>
-                {t === 'signin' ? 'Sign In' : 'Create Account'}
-              </button>
-            ))}
-          </div>
-
-          {/* Form */}
-          <div style={{ padding: '28px' }}>
-            <form onSubmit={tab === 'signin' ? signIn : signUp}>
-              <div style={{ marginBottom: '14px' }}>
-                <label style={{ display: 'block', fontFamily: 'Inter, sans-serif', fontSize: '0.6rem',
-                  letterSpacing: '0.14em', textTransform: 'uppercase', fontWeight: 500,
-                  color: 'var(--ink-mute)', marginBottom: '6px' }}>Email</label>
-                <input type="email" value={email} onChange={e => setEmail(e.target.value)}
-                  placeholder="your@email.com" autoComplete="email"
-                  className="field" style={{ marginBottom: 0 }} />
-              </div>
-
-              <div style={{ marginBottom: tab === 'signup' ? '14px' : '20px' }}>
-                <label style={{ display: 'block', fontFamily: 'Inter, sans-serif', fontSize: '0.6rem',
-                  letterSpacing: '0.14em', textTransform: 'uppercase', fontWeight: 500,
-                  color: 'var(--ink-mute)', marginBottom: '6px' }}>Password</label>
-                <input type="password" value={password} onChange={e => setPassword(e.target.value)}
-                  placeholder={tab === 'signup' ? 'Minimum 6 characters' : 'Your password'}
-                  autoComplete={tab === 'signin' ? 'current-password' : 'new-password'}
-                  className="field" style={{ marginBottom: 0 }} />
-              </div>
-
-              {tab === 'signup' && (
-                <>
-                  <div style={{ marginBottom: '14px' }}>
-                    <label style={{ display: 'block', fontFamily: 'Inter, sans-serif', fontSize: '0.6rem',
-                      letterSpacing: '0.14em', textTransform: 'uppercase', fontWeight: 500,
-                      color: 'var(--ink-mute)', marginBottom: '6px' }}>First Name</label>
-                    <input type="text" value={name} onChange={e => setName(e.target.value)}
-                      placeholder="How Berean will address you" className="field" style={{ marginBottom: 0 }} />
-                  </div>
-                  <div style={{ marginBottom: '20px' }}>
-                    <label style={{ display: 'block', fontFamily: 'Inter, sans-serif', fontSize: '0.6rem',
-                      letterSpacing: '0.14em', textTransform: 'uppercase', fontWeight: 500,
-                      color: 'var(--ink-mute)', marginBottom: '6px' }}>Occupation / Context</label>
-                    <input type="text" value={occ} onChange={e => setOcc(e.target.value)}
-                      placeholder="e.g. Pastor, Entrepreneur, Parent"
-                      className="field" style={{ marginBottom: 0 }} />
-                    <p style={{ fontFamily: 'Inter, sans-serif', fontSize: '0.6rem', color: 'var(--ink-mute)',
-                      marginTop: '5px', fontStyle: 'italic' }}>
-                      Used to personalise how principles apply to your life
-                    </p>
-                  </div>
-                </>
-              )}
-
-              <button type="submit" disabled={loading} className="btn-primary"
-                style={{ width: '100%', padding: '14px', fontSize: '0.68rem' }}>
-                {loading ? 'Please wait…' : tab === 'signin' ? 'Sign In' : 'Create Account'}
-              </button>
-            </form>
-
-            {tab === 'signin' && (
-              <button onClick={forgot} className="btn-ghost"
-                style={{ width: '100%', marginTop: '10px', justifyContent: 'center',
-                  fontSize: '0.6rem', color: 'var(--ink-mute)' }}>
-                Forgot password?
-              </button>
-            )}
-          </div>
+        <div style={{ fontFamily: 'DM Sans, sans-serif', fontSize: '12px',
+          color: 'rgba(255,255,255,0.3)' }}>
+          Aloniros Inc. · monskisnote.com
         </div>
-
-        {/* Footer */}
-        <p style={{ textAlign: 'center', marginTop: '24px', fontFamily: 'Cormorant Garamond, serif',
-          fontSize: '0.9rem', color: 'var(--ink-mute)', fontStyle: 'italic' }}>
-          Genesis through Revelation — every chapter, every principle
-        </p>
       </div>
+
+      {/* Right panel — form */}
+      <div style={{
+        flex: 1, display: 'flex', alignItems: 'center',
+        justifyContent: 'center', padding: '40px 24px',
+      }}>
+        <div style={{ width: '100%', maxWidth: '400px' }}>
+
+          {/* Mobile logo */}
+          <div className="show-on-small" style={{ textAlign: 'center', marginBottom: '32px' }}>
+            <div style={{ fontFamily: "'Playfair Display', serif", fontSize: '28px',
+              fontWeight: 500, color: 'var(--ink)' }}>
+              Bere<span style={{ color: 'var(--gold2)' }}>an</span>
+            </div>
+          </div>
+
+          <h2 style={{ fontFamily: "'Playfair Display', serif", fontSize: '22px',
+            fontWeight: 500, color: 'var(--ink)', marginBottom: '6px' }}>
+            {tab === 'in' ? 'Welcome back' : 'Create your account'}
+          </h2>
+          <p style={{ fontFamily: 'DM Sans, sans-serif', fontSize: '13px',
+            color: 'var(--ink4)', marginBottom: '28px' }}>
+            {tab === 'in'
+              ? 'Sign in to access your devotions, journal, and history.'
+              : 'Join Berean and begin your daily devotion journey.'}
+          </p>
+
+          {/* Tab switcher */}
+          <div style={{ display: 'flex', gap: '0', marginBottom: '28px',
+            border: '1.5px solid var(--rule)', borderRadius: '4px', overflow: 'hidden' }}>
+            {[['in','Sign In'],['up','Create Account']].map(([t,l]) => (
+              <button key={t} onClick={() => setTab(t as 'in'|'up')} style={{
+                flex: 1, padding: '10px', border: 'none', cursor: 'pointer',
+                fontFamily: 'DM Sans, sans-serif', fontSize: '12px', fontWeight: 600,
+                letterSpacing: '0.04em', transition: 'all 0.15s',
+                background: tab === t ? 'var(--gold)' : 'transparent',
+                color: tab === t ? 'white' : 'var(--ink4)',
+              }}>
+                {l}
+              </button>
+            ))}
+          </div>
+
+          <form onSubmit={submit} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            <div>
+              <label className="field-label">Email address</label>
+              <input type="email" value={f.email} onChange={upd('email')}
+                placeholder="you@email.com" autoComplete="email" className="input-field"
+                style={{ padding: '12px 16px' }} />
+            </div>
+            <div>
+              <label className="field-label">Password</label>
+              <input type="password" value={f.password} onChange={upd('password')}
+                placeholder={tab === 'up' ? 'Minimum 6 characters' : ''}
+                autoComplete={tab === 'in' ? 'current-password' : 'new-password'}
+                className="input-field" style={{ padding: '12px 16px' }} />
+            </div>
+
+            {tab === 'up' && (
+              <>
+                <div>
+                  <label className="field-label">First name</label>
+                  <input type="text" value={f.name} onChange={upd('name')}
+                    placeholder="How Berean will address you" className="input-field"
+                    style={{ padding: '12px 16px' }} />
+                </div>
+                <div>
+                  <label className="field-label">Occupation / context</label>
+                  <input type="text" value={f.occ} onChange={upd('occ')}
+                    placeholder="e.g. Pastor, Entrepreneur, Parent"
+                    className="input-field" style={{ padding: '12px 16px' }} />
+                  <p style={{ marginTop: '5px', fontFamily: 'DM Sans, sans-serif', fontSize: '11px',
+                    color: 'var(--ink5)', fontStyle: 'italic' }}>
+                    Used to personalise how principles apply to your life
+                  </p>
+                </div>
+              </>
+            )}
+
+            <button type="submit" disabled={busy} className="btn btn-gold"
+              style={{ width: '100%', padding: '14px', fontSize: '13px', marginTop: '4px' }}>
+              {busy ? 'Please wait…' : tab === 'in' ? 'Sign In' : 'Create Account'}
+            </button>
+          </form>
+
+          {tab === 'in' && (
+            <button onClick={async () => {
+              if (!f.email) { toast.error('Enter your email first'); return }
+              const { error } = await sb.auth.resetPasswordForEmail(f.email)
+              if (error) toast.error(error.message)
+              else toast.success('Password reset email sent')
+            }} style={{ marginTop: '14px', width: '100%', padding: '8px',
+              background: 'transparent', border: 'none', cursor: 'pointer',
+              fontFamily: 'DM Sans, sans-serif', fontSize: '12px', color: 'var(--ink5)' }}>
+              Forgot password?
+            </button>
+          )}
+        </div>
+      </div>
+
+      <style>{`
+        @media (max-width: 767px) { .hide-on-small { display: none !important; } }
+        @media (min-width: 768px) { .show-on-small { display: none !important; } }
+      `}</style>
     </div>
   )
 }

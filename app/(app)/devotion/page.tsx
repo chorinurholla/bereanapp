@@ -8,7 +8,6 @@ import { THEME_CATS } from '@/lib/corpus'
 import MessageBubble from '@/components/berean/MessageBubble'
 import type { CorpusChapter } from '@/lib/corpus'
 import type { JournalEntry } from '@/lib/supabase'
-import { Sparkles, ChevronDown, BookOpen, Filter } from 'lucide-react'
 
 const EXAMPLES = [
   "How should I handle a business partner who betrayed me?",
@@ -21,28 +20,23 @@ const EXAMPLES = [
 
 export default function DevotionPage() {
   const { user } = useAuth()
-  const [corpus,    setCorpus]    = useState<CorpusChapter[]>([])
-  const [input,     setInput]     = useState('')
-  const [devoMode,  setDevoMode]  = useState(true)
-  const [testament, setTestament] = useState<'OT'|'NT'|'both'>('both')
-  const [themes,    setThemes]    = useState<Set<string>>(new Set())
-  const [showThemes,setShowThemes]= useState(false)
+  const [corpus,     setCorpus]     = useState<CorpusChapter[]>([])
+  const [input,      setInput]      = useState('')
+  const [devoMode,   setDevoMode]   = useState(true)
+  const [testament,  setTestament]  = useState<'OT'|'NT'|'both'>('both')
+  const [themes,     setThemes]     = useState<Set<string>>(new Set())
+  const [showThemes, setShowThemes] = useState(false)
   const messagesEnd = useRef<HTMLDivElement>(null)
-  const textareaRef = useRef<HTMLTextAreaElement>(null)
+  const inputRef    = useRef<HTMLTextAreaElement>(null)
 
-  // Load corpus
   useEffect(() => {
-    fetch('/corpus.json')
-      .then(r => r.json())
-      .then((data: CorpusChapter[]) => setCorpus(data))
-      .catch(console.error)
+    fetch('/corpus.json').then(r => r.json()).then(setCorpus).catch(console.error)
   }, [])
 
   const { messages, streaming, sendMessage } = useCorpusChat({
     corpus, devoMode, testament, selectedThemes: themes,
   })
 
-  // Auto-scroll
   useEffect(() => {
     messagesEnd.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
@@ -66,109 +60,103 @@ export default function DevotionPage() {
     const q = input.trim() || (devoMode ? 'Give me a fresh daily devotion from the corpus' : '')
     if (!q || streaming) return
     setInput('')
-    if (textareaRef.current) { textareaRef.current.style.height = 'auto' }
+    if (inputRef.current) inputRef.current.style.height = 'auto'
     sendMessage(q)
   }
 
   const toggleTheme = (t: string) => {
-    setThemes(prev => {
-      const next = new Set(prev)
-      next.has(t) ? next.delete(t) : next.add(t)
-      return next
-    })
+    setThemes(prev => { const n = new Set(prev); n.has(t) ? n.delete(t) : n.add(t); return n })
   }
 
   const cycleTestament = () => {
     setTestament(t => t === 'both' ? 'OT' : t === 'OT' ? 'NT' : 'both')
   }
 
-  const testamentLabel = { both: '📜 OT + NT', OT: '📜 OT Only', NT: '✝ NT Only' }[testament]
-
   const isEmpty = messages.length === 0
 
   return (
-    <div className="flex flex-col h-full">
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
 
-      {/* Mode banner */}
-      {devoMode && (
-        <div className="flex items-center gap-2 px-4 py-2 flex-shrink-0 font-mono text-[0.6rem] tracking-[0.16em] uppercase"
-             style={{
-               borderBottom: '1px solid rgba(201,168,76,0.12)',
-               background: 'linear-gradient(90deg, rgba(201,168,76,0.06), transparent)',
-               color: 'var(--gold)',
-             }}>
-          <div className="w-1.5 h-1.5 rounded-full flex-shrink-0"
-               style={{ background: 'var(--gold)', animation: 'pulse-gold 2s infinite' }} />
-          Devotion Mode — fresh principles, tracked automatically
-          {themes.size > 0 && (
-            <span className="ml-2 opacity-60">· {themes.size} theme{themes.size > 1 ? 's' : ''} selected</span>
-          )}
-        </div>
-      )}
-
-      {/* Theme selector */}
+      {/* Theme panel */}
       {showThemes && (
-        <div className="flex flex-wrap gap-1.5 px-4 py-3 flex-shrink-0 overflow-y-auto max-h-36"
-             style={{ borderBottom: '1px solid var(--border)', background: 'var(--surface2)' }}>
+        <div style={{
+          borderBottom: '1px solid var(--rule)',
+          background: 'var(--paper2)',
+          padding: '16px 20px',
+          maxHeight: '160px',
+          overflowY: 'auto',
+          flexShrink: 0,
+        }}>
+          <div style={{ fontFamily: 'DM Sans, sans-serif', fontSize: '10px', fontWeight: 600,
+            letterSpacing: '0.18em', textTransform: 'uppercase', color: 'var(--ink4)',
+            marginBottom: '12px' }}>Filter by Theme</div>
           {THEME_CATS.map(cat => (
-            <div key={cat.label} className="contents">
-              <div className="w-full font-mono text-[0.5rem] tracking-[0.18em] uppercase mt-1"
-                   style={{ color: 'var(--text-mute)', flexBasis: '100%' }}>
-                {cat.label}
+            <div key={cat.label} style={{ marginBottom: '10px' }}>
+              <div style={{ fontFamily: 'DM Sans, sans-serif', fontSize: '9px', fontWeight: 600,
+                letterSpacing: '0.15em', textTransform: 'uppercase', color: 'var(--ink5)',
+                marginBottom: '6px' }}>{cat.label}</div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                {cat.themes.map(t => (
+                  <button key={t} onClick={() => toggleTheme(t)}
+                    className={'theme-tag' + (themes.has(t) ? ' on' : '')}>
+                    {t}
+                  </button>
+                ))}
               </div>
-              {cat.themes.map(t => (
-                <button
-                  key={t}
-                  onClick={() => toggleTheme(t)}
-                  className="px-2 py-1 font-mono text-[0.55rem] tracking-[0.1em] uppercase transition-all cursor-pointer"
-                  style={{
-                    border: `1px solid ${themes.has(t) ? 'var(--gold)' : 'var(--border2)'}`,
-                    background: themes.has(t) ? 'var(--gold-dim)' : 'transparent',
-                    color: themes.has(t) ? 'var(--gold)' : 'var(--text-mute)',
-                  }}
-                >
-                  {t}
-                </button>
-              ))}
             </div>
           ))}
         </div>
       )}
 
       {/* Messages */}
-      <div className="flex-1 overflow-y-auto">
+      <div style={{ flex: 1, overflowY: 'auto' }}>
         {isEmpty ? (
-          <div className="flex flex-col items-center justify-center min-h-[60vh] px-4 text-center">
-            <div className="text-3xl mb-5 opacity-50">✦</div>
-            <h2 className="text-lg mb-2 tracking-wide" style={{ color: 'var(--gold)', fontFamily: "'Cinzel', serif" }}>
+          <div style={{
+            display: 'flex', flexDirection: 'column', alignItems: 'center',
+            justifyContent: 'center', minHeight: '60vh',
+            padding: '48px 24px', textAlign: 'center',
+          }}>
+            {/* Ornament */}
+            <div style={{ fontFamily: "'Playfair Display', serif", fontSize: '32px',
+              color: 'var(--gold3)', marginBottom: '20px', opacity: 0.6 }}>✦</div>
+
+            <h2 style={{ fontFamily: "'Playfair Display', serif", fontSize: '28px',
+              fontWeight: 500, color: 'var(--ink)', marginBottom: '12px',
+              letterSpacing: '0.01em' }}>
               {devoMode ? 'Daily Devotion' : 'Ask Anything from Scripture'}
             </h2>
-            <p className="text-sm leading-relaxed max-w-sm mb-8" style={{ color: 'var(--text-dim)' }}>
+
+            <p style={{ fontFamily: "'Source Serif 4', serif", fontSize: '16px',
+              color: 'var(--ink3)', maxWidth: '420px', lineHeight: 1.75,
+              marginBottom: '36px' }}>
               {devoMode
-                ? 'Enter a theme or life situation, or tap the button for a fresh devotion drawn from unused corpus passages.'
-                : 'Berean searches 5,956 principles across 66 books to answer any life question from Scripture\'s own narrative.'}
+                ? 'Enter a theme or life situation below, or tap ✦ Devotion for a fresh devotion drawn from passages you haven\'t read yet.'
+                : 'Berean searches 5,956 principles across 66 books of Scripture and responds with wisdom traceable to its source.'}
             </p>
-            <div className="flex flex-wrap gap-2 justify-center max-w-lg">
+
+            <div style={{ display: 'grid', gap: '8px', width: '100%', maxWidth: '520px' }}>
               {EXAMPLES.map(ex => (
-                <button
-                  key={ex}
-                  onClick={() => sendMessage(ex)}
-                  className="px-3 py-2 text-xs text-left transition-all cursor-pointer"
+                <button key={ex} onClick={() => sendMessage(ex)}
                   style={{
-                    border: '1px solid var(--border2)',
-                    background: 'transparent',
-                    color: 'var(--text-dim)',
-                    fontFamily: 'Georgia, serif',
+                    padding: '13px 20px', background: 'white',
+                    border: '1px solid var(--rule)',
+                    color: 'var(--ink3)', cursor: 'pointer', textAlign: 'left',
+                    fontFamily: "'Source Serif 4', serif", fontSize: '15px',
+                    lineHeight: 1.5, boxShadow: 'var(--s1)', transition: 'all 0.15s',
                   }}
                   onMouseOver={e => {
-                    e.currentTarget.style.borderColor = 'var(--gold)'
+                    e.currentTarget.style.borderColor = 'var(--gold2)'
                     e.currentTarget.style.color = 'var(--gold)'
-                    e.currentTarget.style.background = 'var(--gold-dim)'
+                    e.currentTarget.style.background = 'var(--gold-bg)'
+                    e.currentTarget.style.transform = 'translateY(-1px)'
+                    e.currentTarget.style.boxShadow = 'var(--s2)'
                   }}
                   onMouseOut={e => {
-                    e.currentTarget.style.borderColor = 'var(--border2)'
-                    e.currentTarget.style.color = 'var(--text-dim)'
-                    e.currentTarget.style.background = 'transparent'
+                    e.currentTarget.style.borderColor = 'var(--rule)'
+                    e.currentTarget.style.color = 'var(--ink3)'
+                    e.currentTarget.style.background = 'white'
+                    e.currentTarget.style.transform = 'none'
+                    e.currentTarget.style.boxShadow = 'var(--s1)'
                   }}
                 >
                   {ex}
@@ -184,11 +172,57 @@ export default function DevotionPage() {
         <div ref={messagesEnd} />
       </div>
 
-      {/* Input area */}
-      <div className="flex-shrink-0" style={{ borderTop: '1px solid var(--border)', background: 'var(--surface)' }}>
-        <div className="flex items-end gap-2 px-3 py-3">
+      {/* Prompt bar */}
+      <div className="prompt-bar" style={{ flexShrink: 0 }}>
+
+        {/* Mode + filter row */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px',
+          marginBottom: '10px', flexWrap: 'wrap' }}>
+
+          {/* Devotion mode pill */}
+          <button
+            onClick={() => setDevoMode(v => !v)}
+            className={'btn btn-outline' + (devoMode ? ' on' : '')}
+            style={{ padding: '6px 14px', fontSize: '12px', borderRadius: '100px',
+              display: 'flex', alignItems: 'center', gap: '6px' }}
+          >
+            <span style={{ fontSize: '14px' }}>✦</span>
+            Devotion Mode {devoMode ? 'On' : 'Off'}
+          </button>
+
+          {/* Testament toggle */}
+          <button
+            onClick={cycleTestament}
+            className={'btn btn-outline' + (testament !== 'both' ? ' on' : '')}
+            style={{ padding: '6px 14px', fontSize: '12px', borderRadius: '100px' }}
+          >
+            {testament === 'both' ? 'OT + NT' : testament === 'OT' ? 'Old Testament' : 'New Testament'}
+          </button>
+
+          {/* Theme filter */}
+          <button
+            onClick={() => setShowThemes(v => !v)}
+            className={'btn btn-outline' + (themes.size > 0 || showThemes ? ' on' : '')}
+            style={{ padding: '6px 14px', fontSize: '12px', borderRadius: '100px',
+              display: 'flex', alignItems: 'center', gap: '5px' }}
+          >
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+              <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/>
+            </svg>
+            {themes.size > 0 ? `${themes.size} Theme${themes.size > 1 ? 's' : ''}` : 'Theme'}
+          </button>
+
+          {/* Corpus count */}
+          <span style={{ marginLeft: 'auto', fontFamily: 'DM Sans, sans-serif', fontSize: '11px',
+            color: 'var(--ink5)' }}>
+            {corpus.length > 0 ? `${corpus.length} chapters loaded` : 'Loading…'}
+          </span>
+        </div>
+
+        {/* Input + send */}
+        <div style={{ display: 'flex', gap: '10px', alignItems: 'flex-end' }}>
           <textarea
-            ref={textareaRef}
+            ref={inputRef}
             value={input}
             onChange={e => {
               setInput(e.target.value)
@@ -197,92 +231,38 @@ export default function DevotionPage() {
             }}
             onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend() } }}
             placeholder={devoMode
-              ? "Enter a theme or situation — or leave blank for fresh devotion…"
-              : "Ask a life question, leadership challenge, or theological question…"}
+              ? 'Enter a theme or life situation, or leave blank for a fresh devotion…'
+              : 'Ask any life question from Scripture…'}
             rows={1}
-            className="flex-1 resize-none outline-none text-sm leading-relaxed py-2.5 px-3"
-            style={{
-              background: 'var(--surface2)', border: '1px solid var(--border)',
-              color: 'var(--text)', fontFamily: 'Georgia, serif',
-              minHeight: '44px', maxHeight: '120px',
-            }}
-            onFocus={e => e.target.style.borderColor = 'var(--border2)'}
-            onBlur={e  => e.target.style.borderColor = 'var(--border)'}
+            className="input-field"
+            style={{ flex: 1, padding: '12px 16px', resize: 'none', minHeight: '46px',
+              maxHeight: '120px', fontSize: '15px', lineHeight: 1.6 }}
           />
-
-          {/* Controls */}
-          <div className="flex flex-col gap-1.5 flex-shrink-0">
-            <div className="flex gap-1.5">
-              {/* Theme filter */}
-              <button
-                onClick={() => setShowThemes(v => !v)}
-                className="flex items-center gap-1 px-2.5 py-2 font-mono text-[0.55rem] tracking-[0.1em] uppercase transition-all cursor-pointer"
-                style={{
-                  border: `1px solid ${showThemes || themes.size > 0 ? 'var(--gold)' : 'var(--border2)'}`,
-                  background: showThemes || themes.size > 0 ? 'var(--gold-dim)' : 'transparent',
-                  color: showThemes || themes.size > 0 ? 'var(--gold)' : 'var(--text-mute)',
-                }}
-                title="Filter by theme"
-              >
-                <Filter size={10} />
-                {themes.size > 0 ? themes.size : ''}
-              </button>
-
-              {/* Testament toggle */}
-              <button
-                onClick={cycleTestament}
-                className="px-2.5 py-2 font-mono text-[0.5rem] tracking-[0.08em] uppercase transition-all cursor-pointer whitespace-nowrap"
-                style={{
-                  border: `1px solid ${testament !== 'both' ? 'var(--gold)' : 'var(--border2)'}`,
-                  background: testament !== 'both' ? 'var(--gold-dim)' : 'transparent',
-                  color: testament !== 'both' ? 'var(--gold)' : 'var(--text-mute)',
-                }}
-                title="Filter by testament"
-              >
-                {testament === 'both' ? 'OT+NT' : testament}
-              </button>
-
-              {/* Devotion toggle */}
-              <button
-                onClick={() => setDevoMode(v => !v)}
-                className="flex items-center gap-1 px-2.5 py-2 font-mono text-[0.55rem] tracking-[0.1em] uppercase transition-all cursor-pointer"
-                style={{
-                  border: `1px solid ${devoMode ? 'var(--gold)' : 'var(--border2)'}`,
-                  background: devoMode ? 'var(--gold-dim)' : 'transparent',
-                  color: devoMode ? 'var(--gold)' : 'var(--text-mute)',
-                }}
-                title="Toggle devotion mode"
-              >
-                <BookOpen size={10} />
-                <span className="hidden sm:inline">{devoMode ? 'Devo On' : 'Devo'}</span>
-              </button>
-            </div>
-
-            {/* Send */}
-            <button
-              onClick={handleSend}
-              disabled={streaming}
-              className="flex items-center justify-center px-3 py-2 transition-all cursor-pointer"
-              style={{
-                background: 'var(--gold-dim)', border: '1px solid var(--gold)',
-                color: 'var(--gold)', opacity: streaming ? 0.5 : 1,
-                fontSize: '18px', lineHeight: 1,
-              }}
-              title="Send (Enter)"
-            >
-              ›
-            </button>
-          </div>
-        </div>
-
-        {/* Footer info */}
-        <div className="px-4 pb-2 flex gap-4 font-mono text-[0.5rem] tracking-[0.1em] uppercase"
-             style={{ color: 'var(--text-mute)' }}>
-          <span>{corpus.length > 0 ? `${corpus.length} chapters` : 'Loading corpus…'}</span>
-          <span>·</span>
-          <span>5,956 principles</span>
-          <span>·</span>
-          <span>66 books</span>
+          <button
+            onClick={handleSend}
+            disabled={streaming}
+            className="btn btn-gold"
+            style={{ padding: '12px 22px', flexShrink: 0, height: '46px', gap: '7px',
+              opacity: streaming ? 0.55 : 1 }}
+          >
+            {streaming ? (
+              <span style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
+                {[0,1,2].map(i => (
+                  <span key={i} style={{ width: '5px', height: '5px', borderRadius: '50%',
+                    background: 'var(--paper)', display: 'block',
+                    animation: `thinking 1.2s ease-in-out ${i*0.2}s infinite` }} />
+                ))}
+              </span>
+            ) : (
+              <>
+                Send
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none"
+                  stroke="currentColor" strokeWidth="2.5">
+                  <line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/>
+                </svg>
+              </>
+            )}
+          </button>
         </div>
       </div>
     </div>

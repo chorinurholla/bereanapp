@@ -134,7 +134,7 @@ export default function SettingsPage() {
             ['Corpus', '66 books · 960 chapters · 5,956 principles'],
             ['Methodology', 'Observation → Interpretation → Timeless Principle → Application → God Shot'],
             ['Sync', 'History, journal, and tracker sync across all your devices automatically'],
-            ['Built by', 'Tolu Adesanya · Aloniros Inc.'],
+            ['Built by', 'Aloniros Inc.'],
             ['Website', 'monskisnote.com'],
           ].map(([label, value]) => (
             <div key={label} className="flex gap-3 mb-2">
