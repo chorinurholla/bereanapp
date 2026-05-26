@@ -7,13 +7,16 @@ import Link from 'next/link'
 import { toast } from 'sonner'
 
 export default function LoginPage() {
+  const [tab,      setTab]      = useState<'signin'|'signup'>('signin')
   const [email,    setEmail]    = useState('')
   const [password, setPassword] = useState('')
+  const [name,     setName]     = useState('')
+  const [occ,      setOcc]      = useState('')
   const [loading,  setLoading]  = useState(false)
   const router = useRouter()
   const sb = createClient()
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const signIn = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!email || !password) { toast.error('Email and password required'); return }
     setLoading(true)
@@ -22,132 +25,160 @@ export default function LoginPage() {
       if (error) throw error
       router.push('/devotion')
     } catch (err: unknown) {
-      const e = err as { message?: string }
-      toast.error(e?.message || 'Sign in failed')
+      toast.error((err as { message?: string })?.message || 'Sign in failed')
       setLoading(false)
     }
   }
 
-  const handleForgot = async () => {
+  const signUp = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!email || !password) { toast.error('Email and password required'); return }
+    if (password.length < 6)  { toast.error('Password must be at least 6 characters'); return }
+    setLoading(true)
+    try {
+      const { data, error } = await sb.auth.signUp({ email, password })
+      if (error) throw error
+      if (data.user) {
+        await sb.from('user_profiles').upsert({
+          id: data.user.id, email,
+          name: name || email.split('@')[0],
+          occupation: occ || '', api_key: '',
+          created_at: new Date().toISOString(),
+        }, { onConflict: 'id' })
+      }
+      if (data.session) router.push('/devotion')
+      else { toast.success('Check your email to confirm your account, then sign in.'); setTab('signin') }
+    } catch (err: unknown) {
+      toast.error((err as { message?: string })?.message || 'Sign up failed')
+      setLoading(false)
+    }
+  }
+
+  const forgot = async () => {
     if (!email) { toast.error('Enter your email first'); return }
-    const { error } = await sb.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/auth/callback`,
-    })
+    const { error } = await sb.auth.resetPasswordForEmail(email)
     if (error) toast.error(error.message)
     else toast.success('Password reset email sent')
   }
 
-  const field: React.CSSProperties = {
-    width: '100%',
-    padding: '12px 14px',
-    background: 'var(--surface2)',
-    border: '1px solid var(--border)',
-    color: 'var(--text)',
-    fontFamily: 'JetBrains Mono, monospace',
-    fontSize: '13px',
-    outline: 'none',
-    marginBottom: '10px',
-    boxSizing: 'border-box',
-  }
-
   return (
     <div style={{
-      minHeight: '100vh',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      background: 'var(--bg)',
-      padding: '20px',
+      minHeight: '100vh', background: 'var(--parchment)',
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      padding: '24px',
+      backgroundImage: 'radial-gradient(ellipse at 20% 50%, rgba(154,123,58,0.06) 0%, transparent 60%), radial-gradient(ellipse at 80% 20%, rgba(42,61,90,0.04) 0%, transparent 60%)',
     }}>
-      {/* Glow */}
-      <div style={{
-        position: 'fixed', inset: 0, pointerEvents: 'none',
-        background: 'radial-gradient(ellipse 60% 40% at 30% 50%, rgba(201,168,76,0.04) 0%, transparent 70%)'
-      }} />
+      <div style={{ width: '100%', maxWidth: '420px' }}>
 
-      <div style={{ width: '100%', maxWidth: '400px', position: 'relative' }}>
-        <div style={{
-          position: 'relative',
-          padding: '44px 40px 36px',
-          background: 'var(--surface)',
-          border: '1px solid var(--border2)',
-        }}>
-          {/* Gold top line */}
-          <div style={{
-            position: 'absolute', top: 0, left: 0, right: 0, height: '2px',
-            background: 'linear-gradient(90deg, transparent, var(--gold), transparent)'
-          }} />
-
-          {/* Logo */}
-          <div style={{ textAlign: 'center', marginBottom: '32px' }}>
-            <h1 style={{
-              fontFamily: 'Cinzel, Georgia, serif',
-              fontSize: '28px',
-              fontWeight: 500,
-              letterSpacing: '0.25em',
-              color: 'var(--gold)',
-              margin: 0,
-            }}>BEREAN</h1>
-            <p style={{
-              fontFamily: 'JetBrains Mono, monospace',
-              fontSize: '9px',
-              letterSpacing: '0.22em',
-              color: 'var(--text-mute)',
-              textTransform: 'uppercase',
-              marginTop: '6px',
-            }}>Biblical Principles Corpus</p>
-          </div>
-
-          <form onSubmit={handleSubmit}>
-            <input
-              type="email" value={email} onChange={e => setEmail(e.target.value)}
-              placeholder="Email address" autoComplete="email" style={field}
-              onFocus={e => e.target.style.borderColor = 'rgba(201,168,76,0.5)'}
-              onBlur={e  => e.target.style.borderColor = 'var(--border)'}
-            />
-            <input
-              type="password" value={password} onChange={e => setPassword(e.target.value)}
-              placeholder="Password" autoComplete="current-password" style={field}
-              onFocus={e => e.target.style.borderColor = 'rgba(201,168,76,0.5)'}
-              onBlur={e  => e.target.style.borderColor = 'var(--border)'}
-            />
-            <button type="submit" disabled={loading} style={{
-              width: '100%', padding: '13px 0', marginBottom: '10px',
-              background: 'var(--gold-dim)', border: '1px solid var(--gold)',
-              color: 'var(--gold)', fontFamily: 'JetBrains Mono, monospace',
-              fontSize: '10px', letterSpacing: '0.22em', textTransform: 'uppercase',
-              cursor: loading ? 'not-allowed' : 'pointer', opacity: loading ? 0.6 : 1,
-            }}>
-              {loading ? 'Signing in...' : 'Sign In'}
-            </button>
-          </form>
-
-          <button onClick={handleForgot} style={{
-            width: '100%', padding: '8px 0', background: 'transparent', border: 'none',
-            color: 'var(--text-mute)', fontFamily: 'JetBrains Mono, monospace',
-            fontSize: '9px', letterSpacing: '0.15em', textTransform: 'uppercase', cursor: 'pointer',
-          }}
-          onMouseOver={e => (e.currentTarget.style.color = 'var(--gold)')}
-          onMouseOut={e  => (e.currentTarget.style.color = 'var(--text-mute)')}
-          >
-            Forgot password?
-          </button>
-
-          <div style={{
-            marginTop: '24px', paddingTop: '20px',
-            borderTop: '1px solid var(--border)', textAlign: 'center'
-          }}>
-            <span style={{
-              fontFamily: 'JetBrains Mono, monospace', fontSize: '9px',
-              letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--text-mute)'
-            }}>New to Berean?{'  '}</span>
-            <Link href="/signup" style={{
-              fontFamily: 'JetBrains Mono, monospace', fontSize: '9px',
-              letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--gold)',
-              textDecoration: 'none'
-            }}>Create account →</Link>
+        {/* Header */}
+        <div style={{ textAlign: 'center', marginBottom: '40px' }}>
+          <h1 style={{ fontFamily: "'Cinzel', serif", fontSize: '32px', fontWeight: 500,
+            letterSpacing: '0.25em', color: 'var(--gold)', marginBottom: '8px' }}>
+            BEREAN
+          </h1>
+          <p style={{ fontFamily: 'Inter, sans-serif', fontSize: '0.65rem', letterSpacing: '0.2em',
+            textTransform: 'uppercase', color: 'var(--ink-mute)', fontWeight: 500 }}>
+            Biblical Principles Corpus
+          </p>
+          <div style={{ marginTop: '16px', display: 'flex', justifyContent: 'center', gap: '24px' }}>
+            {[['66', 'Books'], ['960', 'Chapters'], ['5,956', 'Principles']].map(([n, l]) => (
+              <div key={l} style={{ textAlign: 'center' }}>
+                <div style={{ fontFamily: "'Cinzel', serif", fontSize: '16px', color: 'var(--gold)', fontWeight: 500 }}>{n}</div>
+                <div style={{ fontFamily: 'Inter, sans-serif', fontSize: '0.5rem', letterSpacing: '0.12em',
+                  textTransform: 'uppercase', color: 'var(--ink-mute)', marginTop: '2px' }}>{l}</div>
+              </div>
+            ))}
           </div>
         </div>
+
+        {/* Card */}
+        <div className="card" style={{ background: 'white', overflow: 'hidden' }}>
+
+          {/* Tabs */}
+          <div style={{ display: 'flex', borderBottom: '1px solid var(--border)' }}>
+            {(['signin', 'signup'] as const).map(t => (
+              <button key={t} onClick={() => setTab(t)} style={{
+                flex: 1, padding: '14px 0',
+                background: tab === t ? 'white' : 'var(--parchment)',
+                border: 'none',
+                borderBottom: tab === t ? '2px solid var(--gold2)' : '2px solid transparent',
+                fontFamily: 'Inter, sans-serif', fontSize: '0.65rem',
+                letterSpacing: '0.14em', textTransform: 'uppercase', fontWeight: 600,
+                color: tab === t ? 'var(--gold)' : 'var(--ink-mute)',
+                cursor: 'pointer', marginBottom: '-1px', transition: 'all 0.15s',
+              }}>
+                {t === 'signin' ? 'Sign In' : 'Create Account'}
+              </button>
+            ))}
+          </div>
+
+          {/* Form */}
+          <div style={{ padding: '28px' }}>
+            <form onSubmit={tab === 'signin' ? signIn : signUp}>
+              <div style={{ marginBottom: '14px' }}>
+                <label style={{ display: 'block', fontFamily: 'Inter, sans-serif', fontSize: '0.6rem',
+                  letterSpacing: '0.14em', textTransform: 'uppercase', fontWeight: 500,
+                  color: 'var(--ink-mute)', marginBottom: '6px' }}>Email</label>
+                <input type="email" value={email} onChange={e => setEmail(e.target.value)}
+                  placeholder="your@email.com" autoComplete="email"
+                  className="field" style={{ marginBottom: 0 }} />
+              </div>
+
+              <div style={{ marginBottom: tab === 'signup' ? '14px' : '20px' }}>
+                <label style={{ display: 'block', fontFamily: 'Inter, sans-serif', fontSize: '0.6rem',
+                  letterSpacing: '0.14em', textTransform: 'uppercase', fontWeight: 500,
+                  color: 'var(--ink-mute)', marginBottom: '6px' }}>Password</label>
+                <input type="password" value={password} onChange={e => setPassword(e.target.value)}
+                  placeholder={tab === 'signup' ? 'Minimum 6 characters' : 'Your password'}
+                  autoComplete={tab === 'signin' ? 'current-password' : 'new-password'}
+                  className="field" style={{ marginBottom: 0 }} />
+              </div>
+
+              {tab === 'signup' && (
+                <>
+                  <div style={{ marginBottom: '14px' }}>
+                    <label style={{ display: 'block', fontFamily: 'Inter, sans-serif', fontSize: '0.6rem',
+                      letterSpacing: '0.14em', textTransform: 'uppercase', fontWeight: 500,
+                      color: 'var(--ink-mute)', marginBottom: '6px' }}>First Name</label>
+                    <input type="text" value={name} onChange={e => setName(e.target.value)}
+                      placeholder="How Berean will address you" className="field" style={{ marginBottom: 0 }} />
+                  </div>
+                  <div style={{ marginBottom: '20px' }}>
+                    <label style={{ display: 'block', fontFamily: 'Inter, sans-serif', fontSize: '0.6rem',
+                      letterSpacing: '0.14em', textTransform: 'uppercase', fontWeight: 500,
+                      color: 'var(--ink-mute)', marginBottom: '6px' }}>Occupation / Context</label>
+                    <input type="text" value={occ} onChange={e => setOcc(e.target.value)}
+                      placeholder="e.g. Pastor, Entrepreneur, Parent"
+                      className="field" style={{ marginBottom: 0 }} />
+                    <p style={{ fontFamily: 'Inter, sans-serif', fontSize: '0.6rem', color: 'var(--ink-mute)',
+                      marginTop: '5px', fontStyle: 'italic' }}>
+                      Used to personalise how principles apply to your life
+                    </p>
+                  </div>
+                </>
+              )}
+
+              <button type="submit" disabled={loading} className="btn-primary"
+                style={{ width: '100%', padding: '14px', fontSize: '0.68rem' }}>
+                {loading ? 'Please wait…' : tab === 'signin' ? 'Sign In' : 'Create Account'}
+              </button>
+            </form>
+
+            {tab === 'signin' && (
+              <button onClick={forgot} className="btn-ghost"
+                style={{ width: '100%', marginTop: '10px', justifyContent: 'center',
+                  fontSize: '0.6rem', color: 'var(--ink-mute)' }}>
+                Forgot password?
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Footer */}
+        <p style={{ textAlign: 'center', marginTop: '24px', fontFamily: 'Cormorant Garamond, serif',
+          fontSize: '0.9rem', color: 'var(--ink-mute)', fontStyle: 'italic' }}>
+          Genesis through Revelation — every chapter, every principle
+        </p>
       </div>
     </div>
   )
