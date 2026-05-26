@@ -20,8 +20,8 @@ const EXAMPLES = [
 export default function ChatPage() {
   const [corpus, setCorpus] = useState<CorpusChapter[]>([])
   const [input,  setInput]  = useState('')
-  const messagesEnd  = useRef<HTMLDivElement>(null)
-  const textareaRef  = useRef<HTMLTextAreaElement>(null)
+  const messagesEnd = useRef<HTMLDivElement>(null)
+  const textareaRef = useRef<HTMLTextAreaElement>(null)
 
   useEffect(() => {
     fetch('/corpus.json').then(r => r.json()).then(setCorpus).catch(console.error)
@@ -43,106 +43,142 @@ export default function ChatPage() {
   }
 
   return (
-    <div className="flex flex-col h-full">
-
-      {/* Header */}
-      <div className="flex items-center justify-between px-4 py-2 flex-shrink-0"
-           style={{ borderBottom: '1px solid var(--border)' }}>
-        <div>
-          <h2 className="font-mono text-[0.65rem] tracking-[0.2em] uppercase" style={{ color: 'var(--gold)' }}>
-            Ask Scripture
-          </h2>
-          <p className="font-mono text-[0.5rem] tracking-[0.1em]" style={{ color: 'var(--text-mute)' }}>
-            Corpus-grounded answers — always traceable to source
-          </p>
-        </div>
-        {messages.length > 0 && (
-          <button
-            onClick={clearMessages}
-            className="flex items-center gap-1.5 px-2.5 py-1.5 font-mono text-[0.55rem] tracking-[0.1em] uppercase transition-colors cursor-pointer"
-            style={{ border: '1px solid var(--border2)', background: 'transparent', color: 'var(--text-mute)' }}
-            onMouseOver={e => (e.currentTarget.style.color = 'var(--gold)')}
-            onMouseOut={e  => (e.currentTarget.style.color = 'var(--text-mute)')}
-          >
-            <RotateCcw size={10} /> New
-          </button>
-        )}
-      </div>
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
 
       {/* Messages */}
-      <div className="flex-1 overflow-y-auto">
+      <div style={{ flex: 1, overflowY: 'auto' }}>
         {messages.length === 0 ? (
-          <div className="flex flex-col items-center justify-center min-h-[55vh] px-4 text-center">
-            <div className="text-2xl mb-4 opacity-40">?</div>
-            <p className="text-sm max-w-xs mb-6 leading-relaxed" style={{ color: 'var(--text-dim)', fontStyle:'italic' }}>
-              Ask any life question, theological challenge, or leadership dilemma. Berean searches the complete corpus and responds with principles traceable to their source in Scripture.
-            </p>
-            <div className="grid gap-2 w-full max-w-md">
+          <div style={{
+            maxWidth: '680px', margin: '0 auto',
+            padding: '60px 32px 40px',
+          }}>
+            {/* Hero */}
+            <div style={{ marginBottom: '52px' }}>
+              <h1 style={{
+                fontFamily: "'Playfair Display', serif",
+                fontSize: '38px', fontWeight: 500,
+                color: 'var(--ink)', lineHeight: 1.2,
+                marginBottom: '16px',
+                letterSpacing: '-0.01em',
+              }}>
+                Ask anything<br />
+                <span style={{ color: 'var(--gold2)', fontStyle: 'italic' }}>from Scripture.</span>
+              </h1>
+              <p style={{
+                fontFamily: "'Source Serif 4', serif",
+                fontSize: '18px', lineHeight: 1.75,
+                color: 'var(--ink3)', maxWidth: '520px',
+              }}>
+                Berean searches 5,956 principles across all 66 books and responds
+                with wisdom traceable to its narrative source in Scripture.
+              </p>
+            </div>
+
+            {/* Divider */}
+            <div style={{
+              display: 'flex', alignItems: 'center', gap: '16px',
+              marginBottom: '28px',
+            }}>
+              <div style={{ flex: 1, height: '1px', background: 'var(--rule)' }} />
+              <span style={{
+                fontFamily: 'DM Sans, sans-serif', fontSize: '10px', fontWeight: 600,
+                letterSpacing: '0.18em', textTransform: 'uppercase', color: 'var(--ink5)',
+              }}>Start with a question</span>
+              <div style={{ flex: 1, height: '1px', background: 'var(--rule)' }} />
+            </div>
+
+            {/* Example questions — two columns on desktop */}
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
+              gap: '10px',
+            }}>
               {EXAMPLES.map(ex => (
-                <button
-                  key={ex}
-                  onClick={() => sendMessage(ex)}
-                  className="px-3 py-2.5 text-left text-xs transition-all cursor-pointer"
+                <button key={ex} onClick={() => sendMessage(ex)}
                   style={{
-                    border: '1px solid var(--border2)', background: 'transparent',
-                    color: 'var(--text-dim)', fontFamily: 'Georgia, serif',
+                    padding: '16px 20px',
+                    background: 'white',
+                    border: '1px solid var(--rule)',
+                    color: 'var(--ink2)',
+                    cursor: 'pointer', textAlign: 'left',
+                    fontFamily: "'Source Serif 4', serif",
+                    fontSize: '16px', lineHeight: 1.5,
+                    boxShadow: 'var(--s1)',
+                    transition: 'all 0.15s',
+                    display: 'flex', alignItems: 'flex-start', gap: '12px',
                   }}
                   onMouseOver={e => {
-                    e.currentTarget.style.borderColor = 'var(--gold)'
-                    e.currentTarget.style.color = 'var(--gold)'
-                    e.currentTarget.style.background = 'var(--gold-dim)'
+                    e.currentTarget.style.borderColor = 'var(--gold2)'
+                    e.currentTarget.style.boxShadow = 'var(--s2)'
+                    e.currentTarget.style.transform = 'translateY(-2px)'
+                    e.currentTarget.style.background = 'var(--gold-bg)'
                   }}
                   onMouseOut={e => {
-                    e.currentTarget.style.borderColor = 'var(--border2)'
-                    e.currentTarget.style.color = 'var(--text-dim)'
-                    e.currentTarget.style.background = 'transparent'
+                    e.currentTarget.style.borderColor = 'var(--rule)'
+                    e.currentTarget.style.boxShadow = 'var(--s1)'
+                    e.currentTarget.style.transform = 'none'
+                    e.currentTarget.style.background = 'white'
                   }}
                 >
+                  <span style={{ color: 'var(--gold3)', fontSize: '18px', lineHeight: 1, flexShrink: 0, marginTop: '2px' }}>›</span>
                   {ex}
                 </button>
               ))}
             </div>
           </div>
         ) : (
-          messages.map(msg => (
-            <MessageBubble key={msg.id} message={msg} />
-          ))
+          <>
+            {/* Header with clear button */}
+            <div style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              padding: '14px 24px', borderBottom: '1px solid var(--rule)',
+              position: 'sticky', top: 0, background: 'rgba(254,252,248,0.95)',
+              backdropFilter: 'blur(8px)', zIndex: 5,
+            }}>
+              <span style={{ fontFamily: 'DM Sans, sans-serif', fontSize: '12px',
+                fontWeight: 500, color: 'var(--ink4)' }}>
+                {messages.filter(m => m.role === 'user').length} question{messages.filter(m => m.role === 'user').length !== 1 ? 's' : ''} asked
+              </span>
+              <button onClick={clearMessages}
+                style={{ display: 'flex', alignItems: 'center', gap: '6px',
+                  background: 'transparent', border: '1px solid var(--rule)',
+                  padding: '6px 14px', cursor: 'pointer', color: 'var(--ink4)',
+                  fontFamily: 'DM Sans, sans-serif', fontSize: '12px', fontWeight: 500,
+                  transition: 'all 0.15s' }}
+                onMouseOver={e => { e.currentTarget.style.borderColor = 'var(--gold2)'; e.currentTarget.style.color = 'var(--gold)' }}
+                onMouseOut={e  => { e.currentTarget.style.borderColor = 'var(--rule)'; e.currentTarget.style.color = 'var(--ink4)' }}
+              >
+                <RotateCcw size={12} /> New conversation
+              </button>
+            </div>
+            {messages.map(msg => <MessageBubble key={msg.id} message={msg} />)}
+          </>
         )}
         <div ref={messagesEnd} />
       </div>
 
       {/* Input */}
-      <div className="flex-shrink-0" style={{ borderTop: '1px solid var(--border)', background: 'var(--surface)' }}>
-        <div className="flex items-end gap-2 px-3 py-3">
+      <div className="prompt-bar" style={{ flexShrink: 0 }}>
+        <div style={{ display: 'flex', gap: '10px', alignItems: 'flex-end',
+          maxWidth: '680px', margin: '0 auto', width: '100%' }}>
           <textarea
-            ref={textareaRef}
-            value={input}
+            ref={textareaRef} value={input}
             onChange={e => {
               setInput(e.target.value)
               e.target.style.height = 'auto'
               e.target.style.height = Math.min(e.target.scrollHeight, 120) + 'px'
             }}
             onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend() } }}
-            placeholder="Ask a life question from Scripture…"
-            rows={1}
-            className="flex-1 resize-none outline-none text-sm leading-relaxed py-2.5 px-3"
-            style={{
-              background: 'var(--surface2)', border: '1px solid var(--border)',
-              color: 'var(--text)', fontFamily: 'Georgia, serif',
-              minHeight: '44px', maxHeight: '120px',
-            }}
+            placeholder="Ask any question from Scripture…"
+            rows={1} className="input-field"
+            style={{ flex: 1, padding: '12px 16px', resize: 'none',
+              minHeight: '46px', maxHeight: '120px', fontSize: '15px', lineHeight: 1.6 }}
           />
-          <button
-            onClick={handleSend}
-            disabled={streaming || !input.trim()}
-            className="flex items-center justify-center px-4 py-2.5 transition-all cursor-pointer"
-            style={{
-              background: 'var(--gold-dim)', border: '1px solid var(--gold)',
-              color: 'var(--gold)', opacity: streaming || !input.trim() ? 0.4 : 1,
-              fontSize: '18px', lineHeight: 1, minHeight: '44px',
-            }}
-          >
-            ›
+          <button onClick={handleSend} disabled={streaming || !input.trim()}
+            className="btn btn-gold"
+            style={{ padding: '12px 22px', flexShrink: 0, height: '46px',
+              opacity: streaming || !input.trim() ? 0.5 : 1 }}>
+            {streaming ? '…' : 'Send →'}
           </button>
         </div>
       </div>
