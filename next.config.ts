@@ -1,11 +1,7 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  // Ensure proper handling of server components
-  experimental: {
-    serverComponentsExternalPackages: ['@anthropic-ai/sdk'],
-  },
-  // Corpus JSON is large - ensure it's served properly
+  serverExternalPackages: ['@anthropic-ai/sdk'],
   async headers() {
     return [
       {

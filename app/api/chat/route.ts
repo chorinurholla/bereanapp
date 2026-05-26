@@ -1,39 +1,53 @@
 import { NextRequest, NextResponse } from 'next/server'
-import Anthropic from '@anthropic-ai/sdk'
-
-const client = new Anthropic({
-  apiKey: process.env.ANTHROPIC_API_KEY,
-})
-
-// Standard Node.js runtime (more reliable on Vercel free tier)
-export const maxDuration = 60
 
 export async function POST(req: NextRequest) {
+  const apiKey = process.env.ANTHROPIC_API_KEY
+
+  if (!apiKey) {
+    return NextResponse.json(
+      { error: { message: 'ANTHROPIC_API_KEY is not set in environment variables' } },
+      { status: 500 }
+    )
+  }
+
+  if (!apiKey.startsWith('sk-ant-')) {
+    return NextResponse.json(
+      { error: { message: 'ANTHROPIC_API_KEY format is invalid — must start with sk-ant-' } },
+      { status: 500 }
+    )
+  }
+
   try {
-    if (!process.env.ANTHROPIC_API_KEY) {
+    const body = await req.json()
+
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+      },
+      body: JSON.stringify(body),
+    })
+
+    const text = await response.text()
+
+    // Make sure we always return valid JSON
+    try {
+      const data = JSON.parse(text)
+      return NextResponse.json(data, { status: response.status })
+    } catch {
       return NextResponse.json(
-        { error: { message: 'API key not configured on server' } },
-        { status: 500 }
+        { error: { message: `Anthropic API returned non-JSON: ${text.substring(0, 200)}` } },
+        { status: 502 }
       )
     }
 
-    const body = await req.json()
-    const { model, max_tokens, system, messages } = body
-
-    const response = await client.messages.create({
-      model: model || 'claude-sonnet-4-5',
-      max_tokens: max_tokens || 2000,
-      system,
-      messages,
-    })
-
-    return NextResponse.json(response)
   } catch (err: unknown) {
-    const error = err as { status?: number; message?: string }
-    console.error('[Berean API]', error)
+    const e = err as { message?: string }
     return NextResponse.json(
-      { error: { message: error?.message || 'Server error' } },
-      { status: error?.status || 500 }
+      { error: { message: e?.message || 'Server error' } },
+      { status: 500 }
     )
   }
 }
