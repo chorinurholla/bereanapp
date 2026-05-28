@@ -154,7 +154,6 @@ export function retrieve(
 
   if (unusedOnly) {
     pool = pool.filter(c => !usedIds.has(c.id))
-    // Apply theme filter
     if (selectedThemes.size > 0) {
       const themed = pool.filter(c => c.themes.some(t => selectedThemes.has(t)))
       if (themed.length >= 2) pool = themed
@@ -167,13 +166,35 @@ export function retrieve(
     .sort((a, b) => b.s - a.s)
 
   if (unusedOnly && scored.length < 2) {
-    // Fallback: any unused with slight randomisation
-    return pool
-      .sort(() => Math.random() - 0.5)
-      .slice(0, k)
+    return pool.sort(() => Math.random() - 0.5).slice(0, k)
   }
 
-  return scored.slice(0, k).map(x => x.c)
+  // ── Book diversity enforcement ──
+  // Never return more than 2 chunks from the same book
+  // This prevents Isaiah (72 chunks) dominating every response
+  const results: CorpusChapter[] = []
+  const bookCount: Record<string, number> = {}
+
+  for (const { c } of scored) {
+    const book = c.book
+    if (!bookCount[book]) bookCount[book] = 0
+    if (bookCount[book] >= 2) continue   // max 2 per book
+    results.push(c)
+    bookCount[book]++
+    if (results.length >= k) break
+  }
+
+  // If diversity filtering left us short, fill from top scores regardless
+  if (results.length < k) {
+    for (const { c } of scored) {
+      if (!results.find(r => r.id === c.id)) {
+        results.push(c)
+        if (results.length >= k) break
+      }
+    }
+  }
+
+  return results
 }
 
 export function buildContextBlock(chapters: CorpusChapter[]): string {
