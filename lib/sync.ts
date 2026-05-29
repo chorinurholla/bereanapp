@@ -5,11 +5,12 @@ import type { HistoryEntry, JournalEntry, TrackerEntry } from './supabase'
 export function keys(uid: string) {
   const s = uid.slice(0, 8)
   return {
-    tracker:  `brn_tracker_${s}`,
-    history:  `brn_history_${s}`,
-    journal:  `brn_journal_${s}`,
-    devcount: `brn_devcount_${s}`,
-    apikey:   `brn_apikey`,
+    tracker:       `brn_tracker_${s}`,
+    history:       `brn_history_${s}`,
+    conversations: `brn_conversations_${s}`,
+    journal:       `brn_journal_${s}`,
+    devcount:      `brn_devcount_${s}`,
+    apikey:        `brn_apikey`,
   }
 }
 

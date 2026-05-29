@@ -51,3 +51,12 @@ export interface TrackerEntry {
   book: string
   date: string
 }
+
+export interface ConversationEntry {
+  id: number
+  date: string
+  dateLabel: string
+  title: string           // first question asked
+  messages: Array<{ role: 'user' | 'assistant'; content: string; sources?: string[] }>
+  refs: string            // all passages cited
+}
