@@ -1,0 +1,563 @@
+@import "tailwindcss";
+
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;0,700;1,400;1,500&family=Source+Serif+4:ital,opsz,wght@0,8..60,300;0,8..60,400;0,8..60,600;1,8..60,300;1,8..60,400&family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;1,300&display=swap');
+
+/* ═══════════════════════════════════════
+   BEREAN — EDITORIAL READING EXPERIENCE
+   Clean · Breathable · Content-first
+═══════════════════════════════════════ */
+
+:root {
+  /* Neutral warm white base */
+  --paper:      #fefcf8;
+  --paper2:     #f8f4ee;
+  --paper3:     #f1ead e;
+  --rule:       #e8e0d0;
+  --rule2:      #d4c9b4;
+
+  /* Gold — restrained, not neon */
+  --gold:       #8a6d35;
+  --gold2:      #b08d4a;
+  --gold3:      #c9a96e;
+  --gold-bg:    rgba(138,109,53,0.07);
+  --gold-bg2:   rgba(138,109,53,0.13);
+
+  /* Text hierarchy */
+  --ink:        #18150f;
+  --ink2:       #2e2a22;
+  --ink3:       #5a5248;
+  --ink4:       #8c8278;
+  --ink5:       #b8b0a4;
+
+  /* Accents */
+  --crimson:    #7a2a2a;
+  --sapphire:   #2a3d6a;
+  --sage:       #3a5440;
+
+  /* Shadows */
+  --s1: 0 1px 4px rgba(24,21,15,0.06);
+  --s2: 0 3px 12px rgba(24,21,15,0.09);
+  --s3: 0 8px 30px rgba(24,21,15,0.12);
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; }
+
+body {
+  background: var(--paper);
+  color: var(--ink);
+  font-family: 'Source Serif 4', Georgia, serif;
+  -webkit-font-smoothing: antialiased;
+  font-size: 17px;
+  line-height: 1.65;
+}
+
+::selection { background: rgba(138,109,53,0.15); }
+
+/* ── Scrollbars ── */
+::-webkit-scrollbar { width: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--rule2); border-radius: 3px; }
+
+/* ── Typography ── */
+.display {
+  font-family: 'Playfair Display', Georgia, serif;
+}
+
+.sans {
+  font-family: 'DM Sans', system-ui, sans-serif;
+}
+
+/* ── Reading canvas ── */
+.reading-canvas {
+  max-width: 680px;
+  margin: 0 auto;
+  padding: 0 24px;
+}
+
+/* ── Devotion article prose ── */
+.devotion-prose {
+  font-family: 'Source Serif 4', serif;
+  font-size: 17px;
+  line-height: 1.85;
+  color: var(--ink2);
+}
+
+.devotion-prose .section-label {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--gold);
+  display: block;
+  margin: 32px 0 10px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--rule);
+}
+
+.devotion-prose p {
+  margin-bottom: 16px;
+  font-size: 17px;
+  line-height: 1.85;
+}
+
+.devotion-prose strong {
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.devotion-prose em {
+  font-style: italic;
+  color: var(--ink3);
+}
+
+/* Principle callout */
+.principle-callout {
+  margin: 28px 0;
+  padding: 20px 28px;
+  background: var(--gold-bg);
+  border-left: 4px solid var(--gold2);
+  position: relative;
+}
+
+.principle-callout::before {
+  content: '"';
+  font-family: 'Playfair Display', serif;
+  font-size: 64px;
+  color: var(--gold3);
+  position: absolute;
+  top: -8px;
+  left: 20px;
+  line-height: 1;
+  opacity: 0.4;
+}
+
+.principle-callout p {
+  font-family: 'Playfair Display', serif;
+  font-size: 20px;
+  font-style: italic;
+  line-height: 1.6;
+  color: var(--gold);
+  margin: 0;
+  padding-top: 12px;
+}
+
+/* Warning callout */
+.warning-callout {
+  margin: 20px 0;
+  padding: 14px 20px;
+  background: rgba(122,42,42,0.05);
+  border-left: 3px solid rgba(122,42,42,0.3);
+  font-family: 'DM Sans', sans-serif;
+  font-size: 13px;
+  color: rgba(122,42,42,0.85);
+  line-height: 1.6;
+}
+
+/* Prayer section */
+.prayer-section {
+  margin: 32px 0;
+  padding: 28px 32px;
+  background: var(--paper2);
+  border: 1px solid var(--rule);
+  border-top: 3px solid var(--gold2);
+}
+
+.prayer-label {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.25em;
+  text-transform: uppercase;
+  color: var(--gold);
+  margin-bottom: 14px;
+}
+
+/* Source chips */
+.source-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 12px;
+  background: var(--paper2);
+  border: 1px solid var(--rule2);
+  color: var(--gold2);
+  font-family: 'DM Sans', sans-serif;
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  border-radius: 2px;
+  gap: 5px;
+}
+
+/* ── Navigation ── */
+.topnav {
+  height: 56px;
+  border-bottom: 1px solid var(--rule);
+  background: var(--paper);
+  display: flex;
+  align-items: center;
+  padding: 0 32px;
+  gap: 0;
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  backdrop-filter: blur(8px);
+  background: rgba(254,252,248,0.92);
+}
+
+.topnav-logo {
+  font-family: 'Playfair Display', serif;
+  font-size: 19px;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  color: var(--ink);
+  margin-right: 40px;
+  text-decoration: none;
+}
+
+.topnav-logo span {
+  color: var(--gold2);
+}
+
+.topnav-link {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--ink4);
+  text-decoration: none;
+  padding: 0 14px;
+  height: 56px;
+  display: flex;
+  align-items: center;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  transition: all 0.15s;
+  white-space: nowrap;
+}
+
+.topnav-link:hover {
+  color: var(--ink2);
+}
+
+.topnav-link.active {
+  color: var(--gold);
+  border-bottom-color: var(--gold2);
+}
+
+/* Mobile nav */
+.bottomnav {
+  position: fixed;
+  bottom: 0; left: 0; right: 0;
+  background: rgba(254,252,248,0.96);
+  border-top: 1px solid var(--rule);
+  display: flex;
+  backdrop-filter: blur(10px);
+  z-index: 20;
+}
+
+.bottomnav-item {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  padding: 10px 4px;
+  text-decoration: none;
+  color: var(--ink5);
+  border-top: 2px solid transparent;
+  transition: all 0.15s;
+}
+
+.bottomnav-item.active {
+  color: var(--gold);
+  border-top-color: var(--gold2);
+  background: var(--gold-bg);
+}
+
+.bottomnav-label {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 9.5px;
+  font-weight: 500;
+  letter-spacing: 0.05em;
+}
+
+/* ── Buttons ── */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  font-family: 'DM Sans', sans-serif;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s;
+  white-space: nowrap;
+  border: none;
+  outline: none;
+}
+
+.btn-gold {
+  background: var(--gold);
+  color: var(--paper);
+  font-size: 13px;
+  padding: 10px 22px;
+  letter-spacing: 0.03em;
+  box-shadow: var(--s2);
+}
+
+.btn-gold:hover {
+  background: var(--gold2);
+  box-shadow: var(--s3);
+  transform: translateY(-1px);
+}
+
+.btn-gold:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.btn-outline {
+  background: transparent;
+  border: 1.5px solid var(--rule2);
+  color: var(--ink3);
+  font-size: 12px;
+  padding: 8px 16px;
+}
+
+.btn-outline:hover {
+  border-color: var(--gold2);
+  color: var(--gold);
+}
+
+.btn-outline.on {
+  border-color: var(--gold2);
+  color: var(--gold);
+  background: var(--gold-bg);
+}
+
+.btn-text {
+  background: transparent;
+  color: var(--ink4);
+  font-size: 12px;
+  padding: 7px 12px;
+}
+
+.btn-text:hover { color: var(--gold); }
+
+/* ── Input ── */
+.input-field {
+  width: 100%;
+  background: white;
+  border: 1.5px solid var(--rule);
+  color: var(--ink);
+  font-family: 'Source Serif 4', serif;
+  font-size: 16px;
+  outline: none;
+  transition: border-color 0.2s, box-shadow 0.2s;
+  box-shadow: var(--s1);
+}
+
+.input-field:focus {
+  border-color: var(--gold2);
+  box-shadow: 0 0 0 3px rgba(138,109,53,0.1);
+}
+
+.input-field::placeholder {
+  color: var(--ink5);
+  font-style: italic;
+}
+
+/* ── Thinking animation ── */
+@keyframes thinking {
+  0%, 100% { opacity: 0.15; transform: scale(0.7); }
+  50%       { opacity: 0.9;  transform: scale(1.1); }
+}
+
+/* ── Fade in ── */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(5px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.fade-in { animation: fadeIn 0.25s ease forwards; }
+
+/* ── Search results ── */
+.search-row {
+  padding: 18px 24px;
+  border-bottom: 1px solid var(--rule);
+  cursor: pointer;
+  transition: background 0.12s;
+}
+
+.search-row:hover {
+  background: var(--paper2);
+}
+
+.search-row.open {
+  background: var(--paper2);
+  border-left: 3px solid var(--gold2);
+  padding-left: 21px;
+}
+
+/* ── History / journal entries ── */
+.entry-row {
+  padding: 20px 24px;
+  border-bottom: 1px solid var(--rule);
+  cursor: pointer;
+  transition: background 0.12s;
+}
+
+.entry-row:hover { background: var(--paper2); }
+
+/* ── Stat badge ── */
+.stat-badge {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+
+.stat-num {
+  font-family: 'Playfair Display', serif;
+  font-size: 22px;
+  font-weight: 500;
+  color: var(--gold2);
+  line-height: 1;
+}
+
+.stat-label {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 9px;
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink5);
+}
+
+/* ── Mode pill ── */
+.mode-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px;
+  background: var(--gold-bg2);
+  border: 1px solid rgba(138,109,53,0.25);
+  color: var(--gold);
+  font-family: 'DM Sans', sans-serif;
+  font-size: 10.5px;
+  font-weight: 500;
+  letter-spacing: 0.05em;
+  border-radius: 100px;
+}
+
+/* ── Theme pill ── */
+.theme-tag {
+  padding: 5px 13px;
+  background: white;
+  border: 1.5px solid var(--rule);
+  color: var(--ink4);
+  font-family: 'DM Sans', sans-serif;
+  font-size: 11.5px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s;
+  border-radius: 100px;
+}
+
+.theme-tag:hover {
+  border-color: var(--gold2);
+  color: var(--gold);
+}
+
+.theme-tag.on {
+  background: var(--gold-bg2);
+  border-color: var(--gold2);
+  color: var(--gold);
+}
+
+/* ── Field label ── */
+.field-label {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink4);
+  display: block;
+  margin-bottom: 6px;
+}
+
+/* ── Toolbar ── */
+.toolbar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+/* ── Prompt bar (floating input) ── */
+.prompt-bar {
+  border-top: 1px solid var(--rule);
+  background: rgba(254,252,248,0.97);
+  backdrop-filter: blur(12px);
+  padding: 14px 20px;
+}
+
+/* ── Berean prose in message bubbles ── */
+.berean-prose {
+  font-family: 'Source Serif 4', serif;
+  font-size: 16.5px;
+  line-height: 1.85;
+  color: var(--ink2);
+}
+
+.berean-prose h3 {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 9.5px;
+  font-weight: 600;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--gold);
+  margin: 28px 0 10px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--rule);
+}
+
+.berean-prose p { margin-bottom: 14px; }
+.berean-prose strong { font-weight: 600; color: var(--ink); }
+.berean-prose em { font-style: italic; color: var(--ink3); }
+
+.berean-prose blockquote {
+  border-left: 3px solid var(--rule2);
+  padding: 6px 18px;
+  color: var(--ink3);
+  font-style: italic;
+  margin: 14px 0;
+  background: var(--paper2);
+}
+
+.principle-block {
+  margin: 22px 0;
+  padding: 18px 24px;
+  background: var(--gold-bg);
+  border-left: 4px solid var(--gold2);
+  font-family: 'Playfair Display', serif;
+  font-size: 18px;
+  font-style: italic;
+  color: var(--gold);
+  line-height: 1.6;
+}
+
+.warning-block {
+  margin: 14px 0;
+  padding: 12px 18px;
+  background: rgba(122,42,42,0.05);
+  border-left: 3px solid rgba(122,42,42,0.25);
+  font-family: 'DM Sans', sans-serif;
+  font-size: 13px;
+  color: rgba(122,42,42,0.8);
+  line-height: 1.6;
+}
