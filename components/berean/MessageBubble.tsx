@@ -390,6 +390,10 @@ export default function MessageBubble({ message, onJournalSave }: Props) {
               <div style={{ display:'flex', alignItems:'center', gap:'8px',
                 marginTop:'16px', paddingTop:'14px',
                 borderTop:'1px solid var(--rule)', flexWrap:'wrap' }}>
+
+                {/* Read Aloud */}
+                <ReadAloudButton text={message.content} />
+
                 <button onClick={handleCopy}
                   style={{ display:'flex', alignItems:'center', gap:'6px', padding:'7px 14px',
                     background:'transparent', border:'1px solid var(--rule)',
