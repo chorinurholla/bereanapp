@@ -75,8 +75,18 @@ function ReadAloudButton({ text }: { text: string }) {
   const [state,    setState]    = useState<'idle'|'loading'|'playing'|'paused'>('idle')
   const audioRef  = useRef<HTMLAudioElement | null>(null)
 
+  const browserTTS = (clean: string) => {
+    window.speechSynthesis?.cancel()
+    const utter = new SpeechSynthesisUtterance(clean.substring(0, 3000))
+    utter.rate  = 0.88
+    utter.pitch = 0.95
+    utter.onend = () => setState('idle')
+    window.speechSynthesis.speak(utter)
+    setState('playing')
+  }
+
   const handlePlay = async () => {
-    // If already have audio, toggle play/pause
+    // Toggle play/pause if audio already loaded
     if (audioRef.current) {
       if (state === 'playing') {
         audioRef.current.pause()
@@ -90,13 +100,14 @@ function ReadAloudButton({ text }: { text: string }) {
 
     setState('loading')
 
-    // Clean text for speech
     const clean = text
-      .replace(/\[PRINCIPLE\](.*?)\[\/PRINCIPLE\]/gs, '$1')
-      .replace(/\[WARNING\](.*?)\[\/WARNING\]/gs, '$1')
+      .replace(/\[PRINCIPLE\]([\s\S]*?)\[\/PRINCIPLE\]/g, '$1')
+      .replace(/\[WARNING\]([\s\S]*?)\[\/WARNING\]/g, '$1')
       .replace(/\*\*(.*?)\*\*/g, '$1')
+      .replace(/\*(.*?)\*/g, '$1')
       .replace(/^#{1,3} /gm, '')
       .replace(/---+/g, '')
+      .replace(/\n{3,}/g, '\n\n')
       .trim()
       .substring(0, 4000)
 
@@ -107,35 +118,26 @@ function ReadAloudButton({ text }: { text: string }) {
         body:    JSON.stringify({ text: clean, voice: 'nova' }),
       })
 
-      const data = res.headers.get('Content-Type')?.includes('audio')
-        ? null
-        : await res.json()
+      const contentType = res.headers.get('Content-Type') || ''
 
-      if (data?.fallback) {
-        // Fall back to browser TTS
-        const utter = new SpeechSynthesisUtterance(clean.substring(0, 3000))
-        utter.rate  = 0.92
-        utter.pitch = 0.95
-        utter.onend = () => setState('idle')
-        window.speechSynthesis.speak(utter)
+      if (contentType.includes('audio')) {
+        // ✅ OpenAI returned real audio
+        const blob  = await res.blob()
+        const url   = URL.createObjectURL(blob)
+        const audio = new Audio(url)
+        audioRef.current = audio
+        audio.play()
         setState('playing')
-        return
+        audio.onended = () => { setState('idle'); audioRef.current = null; URL.revokeObjectURL(url) }
+      } else {
+        // Server returned JSON — fallback to browser TTS
+        const data = await res.json()
+        console.log('[TTS] Fallback:', data?.reason || 'unknown')
+        browserTTS(clean)
       }
-
-      const blob    = await res.blob()
-      const url     = URL.createObjectURL(blob)
-      const audio   = new Audio(url)
-      audioRef.current = audio
-      audio.play()
-      setState('playing')
-      audio.onended = () => { setState('idle'); audioRef.current = null }
-    } catch {
-      // Final fallback to browser TTS
-      const utter = new SpeechSynthesisUtterance(clean.substring(0, 3000))
-      utter.rate  = 0.92
-      utter.onend = () => setState('idle')
-      window.speechSynthesis.speak(utter)
-      setState('playing')
+    } catch (err) {
+      console.error('[TTS] Client error:', err)
+      browserTTS(clean)
     }
   }
 
