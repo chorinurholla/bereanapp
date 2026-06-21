@@ -121,7 +121,8 @@ function ReadAloudButton({ text }: { text: string }) {
       const contentType = res.headers.get('Content-Type') || ''
 
       if (contentType.includes('audio')) {
-        // ✅ OpenAI returned real audio
+        // ✅ OpenAI TTS — natural voice
+        toast.success('Playing via OpenAI voice')
         const blob  = await res.blob()
         const url   = URL.createObjectURL(blob)
         const audio = new Audio(url)
@@ -130,13 +131,16 @@ function ReadAloudButton({ text }: { text: string }) {
         setState('playing')
         audio.onended = () => { setState('idle'); audioRef.current = null; URL.revokeObjectURL(url) }
       } else {
-        // Server returned JSON — fallback to browser TTS
+        // Server returned JSON — show reason and fall back
         const data = await res.json()
-        console.log('[TTS] Fallback:', data?.reason || 'unknown')
+        const reason = data?.reason || 'unknown'
+        toast.error(`TTS: using browser voice (reason: ${reason})`)
+        console.warn('[TTS] Fallback reason:', reason, data)
         browserTTS(clean)
       }
     } catch (err) {
       console.error('[TTS] Client error:', err)
+      toast.error('TTS error — using browser voice')
       browserTTS(clean)
     }
   }

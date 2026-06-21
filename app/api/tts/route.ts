@@ -3,6 +3,9 @@ import { NextRequest, NextResponse } from 'next/server'
 export async function POST(req: NextRequest) {
   const openaiKey = process.env.OPENAI_API_KEY
 
+  // Log key status for debugging (redacted)
+  console.log('[TTS] OPENAI_API_KEY present:', !!openaiKey, openaiKey ? `(starts: ${openaiKey.substring(0,7)}...)` : '(missing)')
+
   // If no OpenAI key configured, tell client to use browser TTS
   if (!openaiKey) {
     console.warn('[TTS] OPENAI_API_KEY not set — falling back to browser TTS')
