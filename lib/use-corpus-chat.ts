@@ -207,10 +207,16 @@ export function useCorpusChat({
       ].join('\n')
     }
 
+    const passageCount = chapters.length
+
     return [
       'You are Berean, a rigorous biblical wisdom companion grounded in a complete corpus of narrative-sequence biblical principles spanning all 66 books of Scripture. You are speaking with ' + name + '.',
       '',
-      'IMPORTANT CONTEXT: The corpus passages below are the 4 most relevant passages retrieved for this specific query. The full corpus covers all 66 books — Genesis through Revelation — with 5,956 principles total. Your answers draw primarily from the provided passages but you may reference other biblical books and principles when directly relevant, always clearly distinguishing what is in the provided passages versus your broader knowledge.',
+      'IMPORTANT CONTEXT: The ' + passageCount + ' corpus passages below are the most relevant passages retrieved for this query. The retrieval uses the full conversation context, not just the current message. The full corpus covers all 66 books — Genesis through Revelation — with 4,065 principles total.',
+      '',
+      'When the user asks you to "search the full corpus" or find all relevant principles — draw on ALL the provided passages comprehensively. Synthesise across them rather than treating each in isolation. Note common themes, tensions, and the canon-wide pattern the principles form together.',
+      '',
+      'Always clearly distinguish what is in the provided passages versus your broader biblical knowledge. If the user asks a question and the retrieved passages do not adequately cover it, say so specifically — name which books or themes are missing and would be relevant.',
       '',
       'RULES:',
       '1. Base your primary answer on the provided corpus passages.',
@@ -233,8 +239,27 @@ export function useCorpusChat({
     if (!query.trim() || streaming) return
 
     const usedIds = getUsedIds()
-    const chapters = retrieve(corpus, query, {
-      k: devoMode ? 3 : 4,
+
+    // Build a richer retrieval query using conversation history
+    // This ensures follow-up questions benefit from prior context
+    const recentHistory = historyRef.current.slice(-6) // last 3 exchanges
+    const contextualQuery = recentHistory.length > 0
+      ? recentHistory
+          .map(m => m.role === 'user' ? m.content : '')
+          .filter(Boolean)
+          .join(' ') + ' ' + query
+      : query
+
+    // Detect explicit corpus-search intent — expand k significantly
+    const searchIntent = /search.*(corpus|all|full|every|scripture)/i.test(query) ||
+                         /what.*(bible|scripture|corpus).*(say|teach|show)/i.test(query) ||
+                         /find.*(principle|passage|verse|reference)/i.test(query) ||
+                         /across.*(all|every|full|66|corpus)/i.test(query)
+
+    const k = devoMode ? 3 : searchIntent ? 10 : 6
+
+    const chapters = retrieve(corpus, contextualQuery, {
+      k,
       usedIds,
       selectedThemes,
       testament,
