@@ -240,8 +240,7 @@ export function useCorpusChat({
 
     const usedIds = getUsedIds()
 
-    // Build a richer retrieval query using conversation history
-    // This ensures follow-up questions benefit from prior context
+    // Build retrieval query from full conversation context
     const recentHistory = historyRef.current.slice(-6) // last 3 exchanges
     const contextualQuery = recentHistory.length > 0
       ? recentHistory
@@ -250,21 +249,62 @@ export function useCorpusChat({
           .join(' ') + ' ' + query
       : query
 
-    // Detect explicit corpus-search intent — expand k significantly
+    // Detect broad search intent — expand k
     const searchIntent = /search.*(corpus|all|full|every|scripture)/i.test(query) ||
                          /what.*(bible|scripture|corpus).*(say|teach|show)/i.test(query) ||
                          /find.*(principle|passage|verse|reference)/i.test(query) ||
                          /across.*(all|every|full|66|corpus)/i.test(query)
 
-    const k = devoMode ? 3 : searchIntent ? 10 : 6
+    const k = devoMode ? 3 : searchIntent ? 12 : 8
 
-    const chapters = retrieve(corpus, contextualQuery, {
-      k,
-      usedIds,
-      selectedThemes,
-      testament,
-      unusedOnly: devoMode,
-    })
+    // ── Semantic search (primary) with keyword fallback ──
+    let chapters: import('@/lib/corpus').CorpusChapter[] = []
+    let usedSemantic = false
+
+    if (!devoMode) {
+      try {
+        const semRes = await fetch('/api/semantic-search', {
+          method:  'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            query:     contextualQuery,
+            k,
+            testament: testament === 'both' ? null : testament,
+          }),
+        })
+        const semData = await semRes.json()
+
+        if (!semData.fallback && semData.matches?.length > 0) {
+          // Map semantic match IDs back to full corpus chunks
+          const idMap = new Map(corpus.map(c => [c.id, c]))
+          const matched = semData.matches
+            .map((m: { id: string }) => idMap.get(m.id))
+            .filter((c: import('@/lib/corpus').CorpusChapter | undefined): c is import('@/lib/corpus').CorpusChapter => !!c)
+          if (matched.length > 0) {
+            chapters = matched
+            usedSemantic = true
+          }
+        }
+      } catch {
+        // Semantic search unavailable — fall through to keyword
+      }
+    }
+
+    // ── Keyword fallback (always used for devotion mode, fallback for ask) ──
+    if (chapters.length === 0) {
+      chapters = retrieve(corpus, contextualQuery, {
+        k,
+        usedIds,
+        selectedThemes,
+        testament,
+        unusedOnly: devoMode,
+      })
+    }
+
+    // Log which retrieval method was used (development aid)
+    if (process.env.NODE_ENV === 'development') {
+      console.log('[retrieval] ' + (usedSemantic ? 'semantic' : 'keyword') + ' k=' + k + ' chunks=' + chapters.length)
+    }
 
     // Detect the dominant Kingdom Pattern from retrieved chapters
     const patternScores: Record<string, number> = {}
