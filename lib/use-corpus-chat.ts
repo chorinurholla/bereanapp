@@ -257,56 +257,82 @@ export function useCorpusChat({
 
     const k = devoMode ? 3 : searchIntent ? 12 : 8
 
-    // ── Semantic search (primary) with keyword fallback ──
+    // ── Semantic search — runs for BOTH devo and ask ──
+    // Devo gets extra candidates so history/theme filters have room to work
     let chapters: import('@/lib/corpus').CorpusChapter[] = []
     let usedSemantic = false
 
-    if (!devoMode) {
-      try {
-        const semRes = await fetch('/api/semantic-search', {
-          method:  'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            query:     contextualQuery,
-            k,
-            testament: testament === 'both' ? null : testament,
-          }),
-        })
-        const semData = await semRes.json()
+    try {
+      const semanticK = devoMode ? Math.min(k * 6, 60) : k
 
-        if (!semData.fallback && semData.matches?.length > 0) {
-          // Map semantic match IDs back to full corpus chunks
-          const idMap = new Map(corpus.map(c => [c.id, c]))
-          const matched = semData.matches
-            .map((m: { id: string }) => idMap.get(m.id))
-            .filter((c: import('@/lib/corpus').CorpusChapter | undefined): c is import('@/lib/corpus').CorpusChapter => !!c)
-          if (matched.length > 0) {
-            chapters = matched
-            usedSemantic = true
+      const semRes = await fetch('/api/semantic-search', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          query:     contextualQuery,
+          k:         semanticK,
+          testament: testament === 'both' ? null : testament,
+        }),
+      })
+      const semData = await semRes.json()
+
+      if (!semData.fallback && semData.matches?.length > 0) {
+        const idMap = new Map(corpus.map(c => [c.id, c]))
+        type Chunk = import('@/lib/corpus').CorpusChapter
+        const matched = (semData.matches as Array<{ id: string }>)
+          .map(m => idMap.get(m.id))
+          .filter((c): c is Chunk => !!c)
+
+        if (devoMode) {
+          // Filter unused, apply theme + testament, enforce book diversity
+          const unused = matched.filter(c => !usedIds.has(c.id))
+          let pool = unused
+          if (selectedThemes.size > 0) {
+            const t = unused.filter(c => c.themes?.some(th => selectedThemes.has(th)))
+            if (t.length >= 2) pool = t
           }
+          if (testament !== 'both') {
+            const t = pool.filter(c => c.testament === testament)
+            if (t.length >= 2) pool = t
+          }
+          const diverse: Chunk[] = []
+          const bookCount: Record<string, number> = {}
+          for (const c of pool) {
+            if (!bookCount[c.book]) bookCount[c.book] = 0
+            if (bookCount[c.book] >= 2) continue
+            diverse.push(c)
+            bookCount[c.book]++
+            if (diverse.length >= k) break
+          }
+          // Fill short results from unused pool
+          if (diverse.length < k) {
+            for (const c of unused) {
+              if (!diverse.find(r => r.id === c.id)) {
+                diverse.push(c)
+                if (diverse.length >= k) break
+              }
+            }
+          }
+          if (diverse.length >= 1) { chapters = diverse; usedSemantic = true }
+        } else {
+          if (matched.length > 0) { chapters = matched.slice(0, k); usedSemantic = true }
         }
-      } catch {
-        // Semantic search unavailable — fall through to keyword
       }
+    } catch {
+      // Semantic unavailable — fall through to keyword
     }
 
-    // ── Keyword fallback (always used for devotion mode, fallback for ask) ──
+    // ── Keyword fallback ──
     if (chapters.length === 0) {
       chapters = retrieve(corpus, contextualQuery, {
-        k,
-        usedIds,
-        selectedThemes,
-        testament,
-        unusedOnly: devoMode,
+        k, usedIds, selectedThemes, testament, unusedOnly: devoMode,
       })
     }
 
-    // Log which retrieval method was used (development aid)
     if (process.env.NODE_ENV === 'development') {
-      console.log('[retrieval] ' + (usedSemantic ? 'semantic' : 'keyword') + ' k=' + k + ' chunks=' + chapters.length)
+      console.log('[retrieval] ' + (usedSemantic ? 'semantic' : 'keyword') + ' mode=' + (devoMode ? 'devo' : 'ask') + ' chunks=' + chapters.length)
     }
-
-    // Detect the dominant Kingdom Pattern from retrieved chapters
+    // Detect Kingdom Pattern from retrieved chapters
     const patternScores: Record<string, number> = {}
     for (const ch of chapters) {
       const { pattern, score } = detectPattern(ch)
