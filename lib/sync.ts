@@ -72,13 +72,16 @@ async function sbSet(uid: string, type: string, payload: unknown) {
 export async function syncFromCloud(uid: string) {
   const k = keys(uid)
   try {
-    const [tracker, history, journal, devcount] = await Promise.all([
+    const [tracker, history, journal, sermons, conversations, devcount] = await Promise.all([
       sbGet(uid, 'tracker'),
       sbGet(uid, 'history'),
       sbGet(uid, 'journal'),
+      sbGet(uid, 'sermons'),
+      sbGet(uid, 'conversations'),
       sbGet(uid, 'devotion_count'),
     ])
 
+    // Tracker
     if (tracker && typeof tracker === 'object') {
       const local = loadLocal<Record<string, TrackerEntry>>(k.tracker, {})
       saveLocal(k.tracker, { ...local, ...tracker })
@@ -87,6 +90,7 @@ export async function syncFromCloud(uid: string) {
       if (Object.keys(local).length) await sbSet(uid, 'tracker', local)
     }
 
+    // Devotion history
     if (history && Array.isArray(history)) {
       const local = loadLocal<HistoryEntry[]>(k.history, [])
       const cloudIds = new Set(history.map((e: HistoryEntry) => e.id))
@@ -98,6 +102,7 @@ export async function syncFromCloud(uid: string) {
       if (local.length) await sbSet(uid, 'history', local)
     }
 
+    // Prayer journal
     if (journal && Array.isArray(journal)) {
       const local = loadLocal<JournalEntry[]>(k.journal, [])
       const cloudIds = new Set(journal.map((e: JournalEntry) => e.id))
@@ -109,6 +114,39 @@ export async function syncFromCloud(uid: string) {
       if (local.length) await sbSet(uid, 'journal', local)
     }
 
+    // Sermon notes
+    if (sermons && Array.isArray(sermons)) {
+      const local = loadLocal<Record<string, unknown>[]>(k.sermons, [])
+      const cloudIds = new Set(sermons.map((e: Record<string, unknown>) => e.id))
+      const merged = [
+        ...sermons,
+        ...local.filter((e: Record<string, unknown>) => !cloudIds.has(e.id)),
+      ]
+      merged.sort((a, b) =>
+        new Date((b as Record<string, string>).date).getTime() -
+        new Date((a as Record<string, string>).date).getTime()
+      )
+      saveLocal(k.sermons, merged)
+    } else {
+      const local = loadLocal<Record<string, unknown>[]>(k.sermons, [])
+      if (local.length) await sbSet(uid, 'sermons', local)
+    }
+
+    // Saved conversations
+    if (conversations && Array.isArray(conversations)) {
+      const local = loadLocal<Record<string, unknown>[]>(k.conversations, [])
+      const cloudIds = new Set(conversations.map((e: Record<string, unknown>) => e.id))
+      const merged = [
+        ...conversations,
+        ...local.filter((e: Record<string, unknown>) => !cloudIds.has(e.id)),
+      ]
+      saveLocal(k.conversations, merged)
+    } else {
+      const local = loadLocal<Record<string, unknown>[]>(k.conversations, [])
+      if (local.length) await sbSet(uid, 'conversations', local)
+    }
+
+    // Devotion count
     if (devcount !== null) {
       const localCount = parseInt(localStorage.getItem(k.devcount) || '0')
       const cloudCount = typeof devcount === 'number' ? devcount : parseInt(devcount) || 0
