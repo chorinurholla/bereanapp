@@ -61,9 +61,12 @@ export async function POST(req: NextRequest) {
     return new NextResponse(audioBuffer, {
       status: 200,
       headers: {
-        'Content-Type': 'audio/mpeg',
-        'Content-Length': audioBuffer.byteLength.toString(),
-        'Cache-Control': 'no-cache',
+        'Content-Type':                 'audio/mpeg',
+        'Content-Length':               audioBuffer.byteLength.toString(),
+        'Accept-Ranges':                'bytes',
+        'Cache-Control':                'no-cache, no-store',
+        'Access-Control-Allow-Origin':  '*',
+        'X-Content-Type-Options':       'nosniff',
       },
     })
 

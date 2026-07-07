@@ -75,6 +75,17 @@ function ReadAloudButton({ text }: { text: string }) {
   const [state,    setState]    = useState<'idle'|'loading'|'playing'|'paused'>('idle')
   const audioRef  = useRef<HTMLAudioElement | null>(null)
 
+  const cleanText = (raw: string) => raw
+    .replace(/\[PRINCIPLE\]([\s\S]*?)\[\/PRINCIPLE\]/g, '$1')
+    .replace(/\[WARNING\]([\s\S]*?)\[\/WARNING\]/g, '$1')
+    .replace(/\*\*(.*?)\*\*/g, '$1')
+    .replace(/\*(.*?)\*/g, '$1')
+    .replace(/^#{1,3} /gm, '')
+    .replace(/---+/g, '')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim()
+    .substring(0, 4000)
+
   const browserTTS = (clean: string) => {
     window.speechSynthesis?.cancel()
     const utter = new SpeechSynthesisUtterance(clean.substring(0, 3000))
@@ -86,30 +97,32 @@ function ReadAloudButton({ text }: { text: string }) {
   }
 
   const handlePlay = async () => {
-    // Toggle play/pause if audio already loaded
+    // Toggle play/pause on already-loaded audio
     if (audioRef.current) {
       if (state === 'playing') {
         audioRef.current.pause()
         setState('paused')
       } else {
-        audioRef.current.play()
+        await audioRef.current.play().catch(() => {})
         setState('playing')
       }
       return
     }
 
-    setState('loading')
+    const clean = cleanText(text)
 
-    const clean = text
-      .replace(/\[PRINCIPLE\]([\s\S]*?)\[\/PRINCIPLE\]/g, '$1')
-      .replace(/\[WARNING\]([\s\S]*?)\[\/WARNING\]/g, '$1')
-      .replace(/\*\*(.*?)\*\*/g, '$1')
-      .replace(/\*(.*?)\*/g, '$1')
-      .replace(/^#{1,3} /gm, '')
-      .replace(/---+/g, '')
-      .replace(/\n{3,}/g, '\n\n')
-      .trim()
-      .substring(0, 4000)
+    // ── iOS Safari fix: create and unlock Audio element BEFORE any async work ──
+    // iOS requires the Audio object to be created synchronously inside a user
+    // gesture handler. Once we await fetch(), the gesture context is lost.
+    // Solution: create Audio immediately, set src after fetch completes.
+    const audio = new Audio()
+    audio.setAttribute('playsinline', 'true')   // prevent fullscreen on iOS
+    audio.setAttribute('webkit-playsinline', 'true')
+    // Unlock audio context on iOS with a silent play call
+    audio.play().catch(() => {})
+    audio.pause()
+    audioRef.current = audio
+    setState('loading')
 
     try {
       const res = await fetch('/api/tts', {
@@ -121,26 +134,34 @@ function ReadAloudButton({ text }: { text: string }) {
       const contentType = res.headers.get('Content-Type') || ''
 
       if (contentType.includes('audio')) {
-        // ✅ OpenAI TTS — natural voice
-        toast.success('Playing via OpenAI voice')
-        const blob  = await res.blob()
-        const url   = URL.createObjectURL(blob)
-        const audio = new Audio(url)
-        audioRef.current = audio
-        audio.play()
+        // ✅ OpenAI TTS — set src on the pre-created audio element
+        const blob = await res.blob()
+        const url  = URL.createObjectURL(blob)
+        audio.src  = url
+        await audio.play()
         setState('playing')
-        audio.onended = () => { setState('idle'); audioRef.current = null; URL.revokeObjectURL(url) }
+        audio.onended = () => {
+          setState('idle')
+          audioRef.current = null
+          URL.revokeObjectURL(url)
+        }
+        audio.onerror = () => {
+          // Audio failed to play — fall back to browser TTS
+          setState('idle')
+          audioRef.current = null
+          URL.revokeObjectURL(url)
+          browserTTS(clean)
+        }
       } else {
-        // Server returned JSON — show reason and fall back
+        // Server returned JSON fallback signal
         const data = await res.json()
-        const reason = data?.reason || 'unknown'
-        toast.error(`TTS: using browser voice (reason: ${reason})`)
-        console.warn('[TTS] Fallback reason:', reason, data)
+        console.warn('[TTS] Fallback reason:', data?.reason || 'unknown')
+        audioRef.current = null
         browserTTS(clean)
       }
     } catch (err) {
       console.error('[TTS] Client error:', err)
-      toast.error('TTS error — using browser voice')
+      audioRef.current = null
       browserTTS(clean)
     }
   }
