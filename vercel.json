@@ -1,6 +1,17 @@
 {
-  "framework": "nextjs",
-  "buildCommand": "next build",
-  "devCommand": "next dev",
-  "installCommand": "npm install"
+  "framework":      "nextjs",
+  "buildCommand":   "next build",
+  "devCommand":     "next dev",
+  "installCommand": "npm install",
+  "functions": {
+    "app/api/tts/route.ts": {
+      "maxDuration": 60
+    },
+    "app/api/chat/route.ts": {
+      "maxDuration": 60
+    },
+    "app/api/semantic-search/route.ts": {
+      "maxDuration": 30
+    }
+  }
 }

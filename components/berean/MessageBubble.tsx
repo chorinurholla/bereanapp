@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { Copy, Check, Share2, BookMarked } from 'lucide-react'
 import { toast } from 'sonner'
 import type { Message } from '@/lib/use-corpus-chat'
@@ -75,6 +75,19 @@ function ReadAloudButton({ text }: { text: string }) {
   const [state,    setState]    = useState<'idle'|'loading'|'playing'|'paused'>('idle')
   const audioRef  = useRef<HTMLAudioElement | null>(null)
 
+  // Fix: iOS screen-lock / background tab audio recovery
+  // When phone screen dims or user switches apps, iOS suspends web audio.
+  // This listener resumes playback when the page becomes visible again.
+  useEffect(() => {
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible' && audioRef.current && state === 'playing') {
+        audioRef.current.play().catch(() => {})
+      }
+    }
+    document.addEventListener('visibilitychange', handleVisibility)
+    return () => document.removeEventListener('visibilitychange', handleVisibility)
+  }, [state])
+
   const cleanText = (raw: string) => raw
     .replace(/\[PRINCIPLE\]([\s\S]*?)\[\/PRINCIPLE\]/g, '$1')
     .replace(/\[WARNING\]([\s\S]*?)\[\/WARNING\]/g, '$1')
@@ -84,7 +97,7 @@ function ReadAloudButton({ text }: { text: string }) {
     .replace(/---+/g, '')
     .replace(/\n{3,}/g, '\n\n')
     .trim()
-    .substring(0, 4000)
+    // No client-side truncation — server handles segmentation for long text
 
   const browserTTS = (clean: string) => {
     window.speechSynthesis?.cancel()

@@ -1,14 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server'
 
+export const runtime = 'nodejs'
+export const maxDuration = 60   // Increase Vercel timeout to 60s for long devotions
+
+const MAX_CHARS = 4096  // OpenAI TTS token limit per call (~4096 tokens ≈ ~16,000 chars)
+
 export async function POST(req: NextRequest) {
   const openaiKey = process.env.OPENAI_API_KEY
 
-  // Log key status for debugging (redacted)
-  console.log('[TTS] OPENAI_API_KEY present:', !!openaiKey, openaiKey ? `(starts: ${openaiKey.substring(0,7)}...)` : '(missing)')
-
-  // If no OpenAI key configured, tell client to use browser TTS
   if (!openaiKey) {
-    console.warn('[TTS] OPENAI_API_KEY not set — falling back to browser TTS')
+    console.warn('[TTS] OPENAI_API_KEY not set')
     return NextResponse.json({ fallback: true, reason: 'no_key' }, { status: 200 })
   }
 
@@ -18,8 +19,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'No text provided' }, { status: 400 })
     }
 
-    // Strip markdown and tags for clean speech
-    const cleanText = text
+    // Strip markdown for clean speech
+    const cleaned = text
       .replace(/\[PRINCIPLE\]([\s\S]*?)\[\/PRINCIPLE\]/g, '$1')
       .replace(/\[WARNING\]([\s\S]*?)\[\/WARNING\]/g, '$1')
       .replace(/\*\*(.*?)\*\*/g, '$1')
@@ -29,44 +30,84 @@ export async function POST(req: NextRequest) {
       .replace(/\n{3,}/g, '\n\n')
       .trim()
 
-    // Keep under 4000 chars (~$0.02 at tts-1 pricing)
-    const input = cleanText.length > 4000 ? cleanText.substring(0, 4000) : cleanText
-
-    const response = await fetch('https://api.openai.com/v1/audio/speech', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${openaiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'tts-1',
-        input,
-        voice,           // nova is warm and natural — good for devotional content
-        response_format: 'mp3',
-        speed: 0.95,     // Slightly slower — better for devotional listening
-      }),
-    })
-
-    if (!response.ok) {
-      const errText = await response.text()
-      console.error('[TTS] OpenAI error:', response.status, errText)
-      return NextResponse.json({
-        fallback: true,
-        reason: 'openai_error',
-        status: response.status,
-      }, { status: 200 })
+    // Split into segments if text exceeds OpenAI's limit
+    // Split at sentence boundaries to avoid cutting mid-word
+    const segments: string[] = []
+    if (cleaned.length <= MAX_CHARS) {
+      segments.push(cleaned)
+    } else {
+      // Split on sentence endings, keeping segments under MAX_CHARS
+      const sentences = cleaned.match(/[^.!?]+[.!?]+/g) || [cleaned]
+      let current = ''
+      for (const sentence of sentences) {
+        if ((current + sentence).length > MAX_CHARS) {
+          if (current) segments.push(current.trim())
+          current = sentence
+        } else {
+          current += sentence
+        }
+      }
+      if (current.trim()) segments.push(current.trim())
     }
 
-    const audioBuffer = await response.arrayBuffer()
-    return new NextResponse(audioBuffer, {
+    console.log(`[TTS] ${segments.length} segment(s), total chars: ${cleaned.length}`)
+
+    // Generate audio for each segment and concatenate
+    const audioChunks: ArrayBuffer[] = []
+
+    for (const segment of segments) {
+      const response = await fetch('https://api.openai.com/v1/audio/speech', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${openaiKey}`,
+          'Content-Type':  'application/json',
+        },
+        body: JSON.stringify({
+          model:           'tts-1',
+          input:           segment,
+          voice,
+          response_format: 'mp3',
+          speed:           0.95,
+        }),
+      })
+
+      if (!response.ok) {
+        const errText = await response.text()
+        console.error('[TTS] OpenAI error:', response.status, errText)
+        // Return what we have so far, or fall back
+        if (audioChunks.length === 0) {
+          return NextResponse.json({
+            fallback: true, reason: 'openai_error', status: response.status,
+          }, { status: 200 })
+        }
+        break  // Return partial audio rather than nothing
+      }
+
+      audioChunks.push(await response.arrayBuffer())
+    }
+
+    // Concatenate all MP3 chunks
+    const totalLength = audioChunks.reduce((sum, b) => sum + b.byteLength, 0)
+    const combined    = new Uint8Array(totalLength)
+    let offset = 0
+    for (const chunk of audioChunks) {
+      combined.set(new Uint8Array(chunk), offset)
+      offset += chunk.byteLength
+    }
+
+    console.log(`[TTS] Returning ${totalLength} bytes (${segments.length} segments)`)
+
+    return new NextResponse(combined.buffer, {
       status: 200,
       headers: {
-        'Content-Type':                 'audio/mpeg',
-        'Content-Length':               audioBuffer.byteLength.toString(),
-        'Accept-Ranges':                'bytes',
-        'Cache-Control':                'no-cache, no-store',
-        'Access-Control-Allow-Origin':  '*',
-        'X-Content-Type-Options':       'nosniff',
+        'Content-Type':                'audio/mpeg',
+        'Content-Length':              totalLength.toString(),
+        'Accept-Ranges':               'bytes',
+        'Cache-Control':               'no-cache, no-store',
+        'Access-Control-Allow-Origin': '*',
+        'X-Content-Type-Options':      'nosniff',
+        'X-TTS-Segments':              segments.length.toString(),
+        'X-TTS-Chars':                 cleaned.length.toString(),
       },
     })
 
