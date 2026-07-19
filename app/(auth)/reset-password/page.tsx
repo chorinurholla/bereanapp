@@ -29,23 +29,39 @@ export default function ResetPasswordPage() {
   // Establish whether we actually have a recovery session before showing a form
   // the user cannot submit. Arriving here directly (bookmark, expired link, or
   // a link already consumed) must fail loudly rather than silently.
+  //
+  // @supabase/ssr uses the PKCE flow, so the link arrives as ?code=<uuid> rather
+  // than a #access_token fragment. detectSessionInUrl normally exchanges that
+  // automatically, but we do not rely on it: if no session has appeared and a
+  // code is still in the URL, we exchange it ourselves.
   useEffect(() => {
     let settled = false
+    const markReady = () => { settled = true; setStatus('ready') }
 
     const { data: { subscription } } = sb.auth.onAuthStateChange((event, session) => {
-      if (event === 'PASSWORD_RECOVERY' || session) {
-        settled = true
-        setStatus('ready')
+      if (event === 'PASSWORD_RECOVERY' || session) markReady()
+    })
+
+    ;(async () => {
+      const { data: { session } } = await sb.auth.getSession()
+      if (session) { markReady(); return }
+
+      const code = new URLSearchParams(window.location.search).get('code')
+      if (!code) return   // no session and nothing to exchange — timeout handles it
+
+      const { error } = await sb.auth.exchangeCodeForSession(code)
+      if (!error) {
+        markReady()
+        // Strip the code so a refresh doesn't retry an already-spent exchange.
+        window.history.replaceState({}, '', '/reset-password')
+      } else {
+        console.error('exchangeCodeForSession:', error.message)
       }
-    })
+    })()
 
-    sb.auth.getSession().then(({ data: { session } }) => {
-      if (session) { settled = true; setStatus('ready') }
-    })
-
-    // Token exchange happens async on mount; give it a moment before declaring
-    // the link dead, otherwise a valid link can flash the error state.
-    const t = setTimeout(() => { if (!settled) setStatus('invalid') }, 2500)
+    // Exchange is async; give it a moment before declaring the link dead,
+    // otherwise a valid link can flash the error state.
+    const t = setTimeout(() => { if (!settled) setStatus('invalid') }, 3000)
 
     return () => { subscription.unsubscribe(); clearTimeout(t) }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
@@ -128,6 +144,13 @@ export default function ResetPasswordPage() {
                 color: 'var(--ink4)', lineHeight: 1.7, marginBottom: '24px' }}>
                 Password reset links expire, and each one can only be used once.
                 Request a fresh link from the sign-in page and it will work.
+              </p>
+              <p style={{ fontFamily: 'DM Sans, sans-serif', fontSize: '12px',
+                color: 'var(--ink5)', lineHeight: 1.7, marginBottom: '24px',
+                fontStyle: 'italic' }}>
+                If you requested the link on a different device or browser than
+                you are using now, open it on the original one — the reset can
+                only be completed where it was started.
               </p>
               <button onClick={() => router.push('/login')} className="btn btn-gold"
                 style={{ width: '100%', padding: '14px', fontSize: '13px' }}>
