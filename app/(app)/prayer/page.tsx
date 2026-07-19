@@ -9,7 +9,7 @@ import type { JournalEntry } from '@/lib/supabase'
 import { BookMarked, Copy, Check, Share2 } from 'lucide-react'
 import { toast } from 'sonner'
 
-// ── 7 Prayer Modes ──────────────────────────────────────
+// ── 8 Prayer Modes ──────────────────────────────────────
 type PrayerMode =
   | 'adoration'
   | 'confession'
@@ -18,6 +18,68 @@ type PrayerMode =
   | 'lament'
   | 'declaration'
   | 'warfare'
+  | 'nightwatch'
+
+// ── Night Watch postures ────────────────────────────────
+// The watch is not a content type like the other seven — it is a time-bound
+// practice. Posture is not a UI toggle: it threads through retrieval (anchors +
+// queryBoost), theme filtering, and the system prompt.
+type NightPosture = 'communion' | 'contending'
+
+const POSTURES = [
+  {
+    id:      'communion' as const,
+    label:   'Communion',
+    icon:    '☾',
+    tagline: 'Stillness in the night watch — Psalm 134, 1 Samuel 3',
+    blurb:   'The servants who stand by night (Psalm 134). Samuel hearing his name in the dark (1 Samuel 3). This posture is unhurried and non-instrumental — you are not contending for anything. You are awake with God while the world sleeps.',
+  },
+  {
+    id:      'contending' as const,
+    label:   'Contending',
+    icon:    '✦',
+    tagline: 'Wrestling until daybreak — Genesis 32, Acts 12, Acts 16',
+    blurb:   'Jacob wrestling until the breaking of the day (Genesis 32). The church praying through the night while Peter sat in chains (Acts 12). Paul and Silas singing at midnight (Acts 16). This posture contends — but from the accomplished victory, not toward an uncertain one.',
+  },
+]
+
+// ── Curated night-watch anchors ─────────────────────────
+// Keyword retrieval alone cannot reach these: the corpus has no "night watch"
+// vocabulary (travail=0, contending=2, meditation=5, stillness=8 chapters).
+// Genesis 32 and Matthew 26 — the two central night texts — never surface by
+// query at all. So we always seed 2 anchors and let retrieve() fill the rest
+// from the user's actual situation. IDs verified against public/corpus.json.
+const NIGHTWATCH_ANCHORS: Record<NightPosture, string[]> = {
+  communion: [
+    'Psalms_PSALM_134',        // Servants Who Stand by Night — the night-watch psalm
+    '1_Samuel_1_SAMUEL_3',     // The Voice in the Night
+    'Psalms_PSALM_63',         // Thirst for God
+    'Psalms_PSALM_4',          // Evening Trust
+    'Job_JOB_35',              // Songs in the Night
+    'Psalms_PSALM_88',         // The Darkest Psalm
+  ],
+  contending: [
+    'Genesis_GENESIS_32',      // Wrestling until daybreak
+    'Acts_ACTS_12',            // Peter freed at night while the church prayed
+    'Acts_ACTS_16',            // Paul and Silas at midnight
+    'Luke_LUKE_18',            // Persistent prayer — the importunate widow
+    'Matthew_MATTHEW_26',      // Gethsemane — "could you not watch one hour"
+    '2_Kings_2_KINGS_19',      // Hezekiah's night deliverance
+  ],
+}
+
+// Query boosts tuned to vocabulary that actually scores in this corpus.
+// Dead words deliberately avoided: travail, contending, meditation, stillness,
+// midnight, communion — they retrieve nothing and dilute the token budget.
+const NIGHTWATCH_BOOST: Record<NightPosture, string> = {
+  communion:  'night seeking presence waiting trust darkness sleep dawn morning',
+  contending: 'night deliverance rescue prayer persistent cry breakthrough darkness enemy',
+}
+
+const NIGHTWATCH_THEMES: Record<NightPosture, string[]> = {
+  communion:  ['prayer', 'worship'],
+  contending: ['prayer', 'faith'],
+}
 
 const MODES = [
   {
@@ -147,6 +209,25 @@ const MODES = [
     ],
     queryBoost: 'warfare authority spiritual victory stronghold Ephesians Daniel',
   },
+  {
+    id:          'nightwatch' as const,
+    label:       'Night Watch',
+    icon:        '☾',
+    color:       '#2a3550',
+    tagline:     'Prayer in the night watch — communion or contending',
+    description: 'The night watch is not a kind of prayer but a time of prayer — the hours when the world is quiet and God is not. Scripture keeps returning to it: the servants who stand by night (Psalm 134), Samuel hearing his name in the dark (1 Samuel 3), Jacob wrestling until daybreak (Genesis 32), the church praying through the night while Peter sat in chains (Acts 12), Paul and Silas singing at midnight (Acts 16). Choose your posture below — the watch holds both stillness and struggle.',
+    promptLabel: 'What are you bringing into the watch?',
+    placeholder: 'What has kept you awake, or what have you risen to seek? Name it plainly — what you are carrying, contending for, or simply want to be still with before God in these hours.',
+    examples: [
+      'I woke at 3am and could not get back to sleep — I want to use the hours',
+      'A burden for my family that only surfaces when the house is quiet',
+      'Something I have been contending for that has not broken yet',
+      'I want to be still with God without asking Him for anything',
+      'A decision I need clarity on before the morning',
+      'Grief that is loudest at night',
+    ],
+    queryBoost: 'night watch prayer darkness dawn seeking',
+  },
 ]
 
 // ── System prompts for all 7 modes ──────────────────────
@@ -155,10 +236,100 @@ function buildPrayerPrompt(
   situation: string,
   name: string,
   occ: string,
-  contextBlock: string
+  contextBlock: string,
+  posture: NightPosture = 'communion'   // only read by nightwatch
 ): { prompt: string; maxTokens: number } {
 
   const base = `You are Berean, generating a deeply biblical prayer for ${name} (${occ}). Every section must be grounded in the provided corpus passages. Every claim must be traceable to Scripture.`
+
+  // ── Night Watch: two postures, one shape ──
+  // Written as MOVEMENTS deliberately. In stage 2 each movement becomes its own
+  // generation in a timed watch session; here they are compressed into a single
+  // prayer. Keep the movement names stable so that expansion is a UI change.
+  const nightwatch: Record<NightPosture, { instructions: string; maxTokens: number }> = {
+
+    communion: {
+      maxTokens: 1100,
+      instructions: `
+PRAYER MODE: NIGHT WATCH — COMMUNION POSTURE
+
+WHAT IS BEING BROUGHT INTO THE WATCH: ${situation}
+
+This is prayer for the night hours. The person is awake when most are not. Do NOT treat this as an emergency or assume distress — being awake at night is not automatically a crisis. This posture is contemplative and NON-INSTRUMENTAL: they are not contending for an outcome, not petitioning, not problem-solving. They are keeping watch with God.
+
+The governing texts: Psalm 134 — the servants who stand by night in the house of the Lord, whose whole ministry is to bless Him in the dark hours. 1 Samuel 3 — Samuel hearing his name in the night and not at first recognising the voice. Psalm 63:6 — "when I remember you upon my bed, and meditate on you in the watches of the night."
+
+Write in the register of the night: quieter, slower, fewer words per sentence than a daytime prayer. The night has its own acoustics. Do not fill the silence.
+
+MOVEMENTS:
+
+**THE WAKING**
+Acknowledge the hour honestly — that they are awake, and what being awake at this hour is like. Do not rush to spiritualise it. If sleep will not come, say so. If they rose deliberately, honour that. 2-3 sentences.
+
+**THE STILLNESS**
+Before anything is said to God, be quiet with Him. This movement resists the instinct to make prayer productive. Draw on the corpus passages about God's presence and character — not what He gives, who He is. 4-5 sentences, unhurried. Let there be space.
+
+**THE LISTENING**
+1 Samuel 3 — Samuel needed to be told how to answer. This movement turns from speaking to listening, and does not pretend to have heard something. Name the willingness to hear without manufacturing a word from God. 3-4 sentences.
+
+**THE KEEPING**
+Psalm 134 — the night servants bless the Lord simply by being there. Name what is being kept watch over: a person, a burden, a silence, or nothing at all but God Himself. This is not intercession — it is presence. 3-4 sentences.
+
+**THE ENTRUSTING**
+Close by handing the night back. Psalm 4:8 — "In peace I will both lie down and sleep." Not resolution, not answers — release. If they will sleep, bless the sleep. If they will not, bless the waking. 2-3 sentences.
+
+Close: "In Jesus' Name, Amen."
+
+Total: 400-550 words. Quiet, unhurried, non-instrumental. Do NOT petition. Do NOT resolve. Do NOT manufacture a word from God on His behalf.
+
+CORPUS PASSAGES:
+${contextBlock}`,
+    },
+
+    contending: {
+      maxTokens: 1300,
+      instructions: `
+PRAYER MODE: NIGHT WATCH — CONTENDING POSTURE
+
+WHAT IS BEING CONTENDED FOR: ${situation}
+
+This is prayer for the night hours, in the posture of holding on. The governing texts: Genesis 32 — Jacob wrestling until the breaking of the day, refusing to release without blessing, and walking away marked. Acts 12 — the church praying through the night while Peter slept in chains, and God moving before morning. Acts 16 — Paul and Silas singing hymns at midnight with their feet in the stocks. Luke 18 — the widow who would not stop coming. Matthew 26 — Gethsemane, "could you not watch with me one hour."
+
+CRITICAL THEOLOGICAL BOUNDARIES:
+- Persistence in prayer is NOT how we overcome God's reluctance. God is not worn down. Luke 18 contrasts the unjust judge with God — the point is that God is NOT like him.
+- Do NOT imply that praying at 3am is more powerful, more effective, or more likely to be heard than praying at 3pm. There is no such mechanism in Scripture. The night watch is a discipline of the one praying, not a lever on God.
+- Do NOT suggest the outcome depends on the intensity, duration, or volume of the prayer.
+- Jacob did not win. He was overpowered, marked, and renamed — and called that blessing.
+- Do NOT generate speculative demonology or treat the night hours as a time of heightened demonic activity requiring special counter-measures.
+
+MOVEMENTS:
+
+**THE WAKING**
+Name the hour and why they are in it — what has them awake and holding on. Honest, not dramatic. 2-3 sentences.
+
+**THE GRIP**
+Genesis 32 — "I will not let you go unless you bless me." Name specifically what is being held onto and why it has not been released. This is the movement that gives the contending its voice. 4-5 sentences drawn from the corpus passages.
+
+**THE HONEST DURATION**
+Acknowledge how long this has gone unanswered. Do not paper over delay. Luke 18's widow kept coming because nothing had changed yet. Name the waiting truthfully — including, if it applies, that morning may come without the answer. 3-4 sentences.
+
+**THE GROUND**
+On what basis is this prayer made? Not the person's persistence, not the hour, not their intensity — but what God has said and what Christ has accomplished. This movement deliberately relocates the confidence away from the praying and onto God's character. 4-5 sentences, grounded in specific corpus principles.
+
+**THE HOLDING**
+Speak the contending itself — specific, named, addressed to God rather than performed. "I am still asking…" "I am not letting go of…" 4-5 sentences.
+
+**THE BREAKING OF THE DAY**
+Jacob's night ended with a limp and a new name, not with him winning. Close by holding both: the resolve to keep holding on, and the willingness to be changed rather than merely answered. 3-4 sentences. Do NOT promise breakthrough by morning.
+
+Close: "In Jesus' Name, Amen."
+
+Total: 550-700 words. Contending but not striving. Persistent without treating persistence as leverage over God.
+
+CORPUS PASSAGES:
+${contextBlock}`,
+    },
+  }
 
   const formats: Record<PrayerMode, { instructions: string; maxTokens: number }> = {
 
@@ -409,6 +580,8 @@ IMPORTANT: Do NOT name specific demons beyond what Scripture names. Do NOT creat
 CORPUS PASSAGES:
 ${contextBlock}`,
     },
+
+    nightwatch: nightwatch[posture],
   }
 
   const fmt = formats[mode]
@@ -420,6 +593,7 @@ ${contextBlock}`,
 
 interface PrayerResult {
   mode: PrayerMode
+  posture?: NightPosture
   situation: string
   prayer: string
   refs: string[]
@@ -427,7 +601,13 @@ interface PrayerResult {
 }
 
 // ── Helper: get theme boost for corpus retrieval by mode ──
-function getModeThemes(mode: PrayerMode): Set<string> {
+// Nightwatch themes are deliberately narrower (2 not 4). Theme bonus is 6pts
+// each, so at nightwatch's lower keyword scores a 4-theme set lets the bonus
+// dominate and floats in noise (this is how "Construction of the Temple"
+// surfaced during the retrieval probe).
+function getModeThemes(mode: PrayerMode, posture: NightPosture = 'communion'): Set<string> {
+  if (mode === 'nightwatch') return new Set(NIGHTWATCH_THEMES[posture])
+
   const themeMap: Record<PrayerMode, string[]> = {
     adoration:    ['worship', 'holiness', 'sovereignty', 'love'],
     confession:   ['repentance', 'grace', 'sin', 'covenant'],
@@ -436,13 +616,53 @@ function getModeThemes(mode: PrayerMode): Set<string> {
     lament:       ['suffering', 'prayer', 'hope', 'faith'],
     declaration:  ['faith', 'covenant', 'obedience', 'sovereignty'],
     warfare:      ['faith', 'obedience', 'covenant', 'sovereignty'],
+    nightwatch:   NIGHTWATCH_THEMES.communion,
   }
   return new Set(themeMap[mode] || [])
 }
 
+// ── Hybrid retrieval for the night watch ────────────────
+// 2 curated anchors + 2 situation-driven results. The anchors guarantee the
+// theological spine is present regardless of what the user types; retrieve()
+// keeps it personal. Anchors are rotated per call so repeat watches don't
+// always open on the same two passages.
+function retrieveNightwatch(
+  corpus: CorpusChapter[],
+  situation: string,
+  posture: NightPosture,
+  k = 4,
+): CorpusChapter[] {
+  const anchorPool = NIGHTWATCH_ANCHORS[posture]
+    .map(id => corpus.find(c => c.id === id))
+    .filter((c): c is CorpusChapter => Boolean(c))
+
+  const anchors = [...anchorPool].sort(() => Math.random() - 0.5).slice(0, 2)
+
+  const retrieved = retrieve(corpus, `${situation} ${NIGHTWATCH_BOOST[posture]}`, {
+    k:              k,
+    selectedThemes: new Set(NIGHTWATCH_THEMES[posture]),
+  })
+
+  const seen = new Set(anchors.map(c => c.id))
+  const merged = [...anchors]
+  for (const c of retrieved) {
+    if (seen.has(c.id)) continue
+    merged.push(c)
+    seen.add(c.id)
+    if (merged.length >= k) break
+  }
+  return merged
+}
+
 // ── Format prayer text for display ──────────────────────
-function formatPrayer(text: string): string {
+// `mode` matters: the declaration regex below matches any paragraph opening
+// with "I am", which would catch nightwatch lines like "I am still asking…" and
+// "I am not letting go of…" and render them as gold-bordered proclamations.
+// Neither night posture is declaration-shaped — communion is deliberately quiet
+// and contending is explicitly not leverage — so that styling is suppressed.
+function formatPrayer(text: string, mode?: PrayerMode): string {
   if (!text) return ''
+  const allowDeclarationStyle = mode !== 'nightwatch'
 
   const headingStyle = [
     'font-family:DM Sans,sans-serif',
@@ -467,7 +687,7 @@ function formatPrayer(text: string): string {
     if (!trimmed) return ''
 
     // Declaration / enforcement lines
-    if (/^(I declare|I am|I stand|I refuse|I will not|God has|By the|His word|I enforce|On the basis|Christ has|The victory|In Christ|I arrest|I command)/m.test(trimmed)) {
+    if (allowDeclarationStyle && /^(I declare|I am|I stand|I refuse|I will not|God has|By the|His word|I enforce|On the basis|Christ has|The victory|In Christ|I arrest|I command)/m.test(trimmed)) {
       return '<p style="margin-bottom:10px;padding-left:16px;border-left:3px solid var(--gold2);font-family:Source Serif 4,serif;font-size:16px;line-height:1.85;color:var(--ink);font-style:italic">' +
         trimmed.replace(/\n/g, '<br>') + '</p>'
     }
@@ -490,6 +710,7 @@ export default function PrayerPage() {
   const { user, profile } = useAuth()
   const [corpus,    setCorpus]    = useState<CorpusChapter[]>([])
   const [mode,      setMode]      = useState<PrayerMode>('adoration')
+  const [posture,   setPosture]   = useState<NightPosture>('communion')
   const [situation, setSituation] = useState('')
   const [loading,   setLoading]   = useState(false)
   const [result,    setResult]    = useState<PrayerResult | null>(null)
@@ -517,16 +738,18 @@ export default function PrayerPage() {
     setResult(null)
     setSaved(false)
 
-    const modeThemes = getModeThemes(mode)
-    const chapters = retrieve(corpus, situation + ' ' + currentMode.queryBoost, {
-      k: 4,
-      selectedThemes: modeThemes,
-    })
+    // Nightwatch uses hybrid anchor+retrieve; every other mode is unchanged.
+    const chapters = mode === 'nightwatch'
+      ? retrieveNightwatch(corpus, situation, posture, 4)
+      : retrieve(corpus, situation + ' ' + currentMode.queryBoost, {
+          k: 4,
+          selectedThemes: getModeThemes(mode),
+        })
 
     const contextBlock = buildContextBlock(chapters)
     const name = profile?.name || 'the reader'
     const occ  = profile?.occupation || 'daily life'
-    const { prompt, maxTokens } = buildPrayerPrompt(mode, situation, name, occ, contextBlock)
+    const { prompt, maxTokens } = buildPrayerPrompt(mode, situation, name, occ, contextBlock, posture)
 
     try {
       const response = await fetch('/api/chat', {
@@ -547,7 +770,9 @@ export default function PrayerPage() {
       const refs = chapters.map(c => c.reference || c.ref || '').filter(Boolean)
 
       setResult({
-        mode, situation: situation.trim(), prayer: prayerText,
+        mode,
+        posture: mode === 'nightwatch' ? posture : undefined,
+        situation: situation.trim(), prayer: prayerText,
         refs,
         date: new Date().toLocaleDateString('en-GB', {
           weekday: 'short', day: 'numeric', month: 'short', year: 'numeric',
@@ -558,13 +783,17 @@ export default function PrayerPage() {
     } finally {
       setLoading(false)
     }
-  }, [situation, mode, corpus, profile, loading, currentMode])
+  }, [situation, mode, posture, corpus, profile, loading, currentMode])
 
   const savePrayer = useCallback(() => {
     if (!result || !user) return
     const k = keys(user.id)
     const journal = loadLocal<JournalEntry[]>(k.journal, [])
-    const modeLabel = MODES.find(m => m.id === result.mode)?.label || result.mode
+    const baseLabel = MODES.find(m => m.id === result.mode)?.label || result.mode
+    const postureLabel = result.posture
+      ? POSTURES.find(p => p.id === result.posture)?.label
+      : null
+    const modeLabel = postureLabel ? `${baseLabel} — ${postureLabel}` : baseLabel
     const entry: JournalEntry = {
       id:         Date.now(),
       devotionId: 0,
@@ -617,7 +846,7 @@ export default function PrayerPage() {
             Prayer Workshop
           </h1>
           <p style={{ fontFamily: 'DM Sans, sans-serif', fontSize: '13px', color: 'var(--ink4)' }}>
-            Seven modes of prayer — each one grounded in your corpus
+            Eight modes of prayer — each one grounded in your corpus
           </p>
         </div>
 
@@ -625,7 +854,14 @@ export default function PrayerPage() {
         <div style={{ display: 'flex', overflowX: 'auto', gap: '0',
           scrollbarWidth: 'none', WebkitOverflowScrolling: 'touch' }}>
           {MODES.map(m => (
-            <button key={m.id} onClick={() => handleModeChange(m.id)} style={{
+            <div key={m.id} style={{ display: 'flex', alignItems: 'center', flexShrink: 0 }}>
+            {/* Night Watch answers "when do you pray", not "what kind of prayer" —
+                a different axis from the other seven, so it is set apart. */}
+            {m.id === 'nightwatch' && (
+              <span aria-hidden style={{ width: '1px', height: '18px',
+                background: 'var(--rule)', margin: '0 10px', flexShrink: 0 }} />
+            )}
+            <button onClick={() => handleModeChange(m.id)} style={{
               padding: '10px 16px',
               background: 'transparent',
               border: 'none',
@@ -644,6 +880,7 @@ export default function PrayerPage() {
               <span style={{ fontSize: '13px' }}>{m.icon}</span>
               {m.label}
             </button>
+            </div>
           ))}
         </div>
       </div>
@@ -673,6 +910,49 @@ export default function PrayerPage() {
             {currentMode.description}
           </p>
         </div>
+
+        {/* Night Watch posture selector — only for nightwatch */}
+        {mode === 'nightwatch' && !result && (
+          <div style={{ marginBottom: '28px' }}>
+            <div style={{ fontFamily: 'DM Sans, sans-serif', fontSize: '11px', fontWeight: 600,
+              letterSpacing: '0.12em', textTransform: 'uppercase',
+              color: 'var(--ink4)', marginBottom: '12px' }}>
+              Choose your posture
+            </div>
+            <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+              {POSTURES.map(p => {
+                const active = posture === p.id
+                return (
+                  <button key={p.id} onClick={() => setPosture(p.id)} style={{
+                    flex: '1 1 260px', textAlign: 'left', padding: '16px 18px',
+                    background: active ? 'white' : 'var(--paper2)',
+                    border: `1.5px solid ${active ? currentMode.color : 'var(--rule)'}`,
+                    borderLeft: `3px solid ${active ? currentMode.color : 'var(--rule)'}`,
+                    cursor: 'pointer', transition: 'all 0.15s',
+                    boxShadow: active ? 'var(--s2)' : 'none',
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
+                      <span style={{ fontSize: '15px', color: active ? currentMode.color : 'var(--ink5)' }}>{p.icon}</span>
+                      <span style={{ fontFamily: 'DM Sans, sans-serif', fontSize: '11px', fontWeight: 700,
+                        letterSpacing: '0.14em', textTransform: 'uppercase',
+                        color: active ? currentMode.color : 'var(--ink4)' }}>
+                        {p.label}
+                      </span>
+                    </div>
+                    <p style={{ fontFamily: "'Source Serif 4', serif", fontSize: '13.5px',
+                      fontStyle: 'italic', color: 'var(--ink3)', lineHeight: 1.6, margin: '0 0 6px' }}>
+                      {p.tagline}
+                    </p>
+                    <p style={{ fontFamily: 'DM Sans, sans-serif', fontSize: '11.5px',
+                      color: 'var(--ink4)', lineHeight: 1.65, margin: 0 }}>
+                      {p.blurb}
+                    </p>
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+        )}
 
         {/* Input area */}
         {!result && (
@@ -786,7 +1066,9 @@ export default function PrayerPage() {
                 <div style={{ fontFamily: 'DM Sans, sans-serif', fontSize: '11px',
                   fontWeight: 600, letterSpacing: '0.12em', textTransform: 'uppercase',
                   color: currentMode.color, marginBottom: '4px' }}>
-                  {currentMode.icon} {currentMode.label} · {result.date}
+                  {currentMode.icon} {currentMode.label}
+                  {result.posture && ` · ${POSTURES.find(p => p.id === result.posture)?.label}`}
+                  {' · '}{result.date}
                 </div>
                 <p style={{ fontFamily: "'Source Serif 4', serif", fontSize: '16px',
                   color: 'var(--ink3)', fontStyle: 'italic' }}>
@@ -821,7 +1103,7 @@ export default function PrayerPage() {
               borderTop: `3px solid ${currentMode.color}`,
               boxShadow: 'var(--s2)', marginBottom: '24px',
             }}>
-              <div dangerouslySetInnerHTML={{ __html: formatPrayer(result.prayer) }} />
+              <div dangerouslySetInnerHTML={{ __html: formatPrayer(result.prayer, result.mode) }} />
             </div>
 
             {/* Actions */}
