@@ -9,6 +9,7 @@ export default function LoginPage() {
   const [tab,  setTab]  = useState<'in'|'up'>('in')
   const [f,    setF]    = useState({ email:'', password:'', name:'', occ:'' })
   const [busy, setBusy] = useState(false)
+  const [resetting, setResetting] = useState(false)
   const router = useRouter()
   const sb = createClient()
   const upd = (k: string) => (e: React.ChangeEvent<HTMLInputElement>) => setF(p => ({...p,[k]:e.target.value}))
@@ -178,15 +179,25 @@ export default function LoginPage() {
           </form>
 
           {tab === 'in' && (
-            <button onClick={async () => {
+            <button disabled={resetting} onClick={async () => {
               if (!f.email) { toast.error('Enter your email first'); return }
-              const { error } = await sb.auth.resetPasswordForEmail(f.email)
-              if (error) toast.error(error.message)
-              else toast.success('Password reset email sent')
+              setResetting(true)
+              // redirectTo must point at the reset page, and this exact URL must
+              // be listed under Authentication -> URL Configuration -> Redirect
+              // URLs in the Supabase dashboard or the link will be rejected.
+              const { error } = await sb.auth.resetPasswordForEmail(f.email, {
+                redirectTo: `${window.location.origin}/reset-password`,
+              })
+              setResetting(false)
+              // Deliberately the same message either way — a distinct error for
+              // unknown addresses would let anyone test which emails have accounts.
+              if (error) console.error('resetPasswordForEmail:', error.message)
+              toast.success('If that email has an account, a reset link is on its way.')
             }} style={{ marginTop: '14px', width: '100%', padding: '8px',
-              background: 'transparent', border: 'none', cursor: 'pointer',
+              background: 'transparent', border: 'none',
+              cursor: resetting ? 'default' : 'pointer',
               fontFamily: 'DM Sans, sans-serif', fontSize: '12px', color: 'var(--ink5)' }}>
-              Forgot password?
+              {resetting ? 'Sending…' : 'Forgot password?'}
             </button>
           )}
         </div>
