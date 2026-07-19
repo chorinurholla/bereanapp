@@ -240,7 +240,42 @@ function buildPrayerPrompt(
   posture: NightPosture = 'communion'   // only read by nightwatch
 ): { prompt: string; maxTokens: number } {
 
-  const base = `You are Berean, generating a deeply biblical prayer for ${name} (${occ}). Every section must be grounded in the provided corpus passages. Every claim must be traceable to Scripture.`
+  // ── Shared contract — governs every mode ──
+  // Applied to all eight prayer modes. The corpus block is built in rich mode,
+  // so verse-level citations and the `principle` field are available; this
+  // contract is what makes the model actually use them instead of paraphrasing
+  // the application prose into reflection.
+  const base = `You are Berean, generating a deeply biblical prayer for ${name} (${occ}).
+
+═══════════════════════════════════════════════
+WORD-ANCHORED PRAYER — NON-NEGOTIABLE
+═══════════════════════════════════════════════
+
+This output is a PRAYER, spoken to God. It is not a reflection, a meditation, a devotional, or an essay about prayer.
+
+1. ADDRESS GOD DIRECTLY.
+Every section is spoken to God in the second person — "You", "Your", "Lord", "Father". Never write about God in the third person ("God is faithful"); pray it to Him ("You are faithful"). Never narrate the person in the third person. If a sentence would sit comfortably in an article about prayer, it is wrong — rewrite it as address.
+
+2. PRAY THE WORD BACK TO GOD.
+Every movement or section must anchor on Scripture drawn from the CORPUS PASSAGES below. Quote the scriptural language directly, in quotation marks, and give its citation in parentheses using the [Book Chapter:Verse] reference supplied with each principle. Weave the quotation into the sentence of the prayer itself — do not append it as a footnote or proof-text.
+
+Right: "You said You would not leave me until You had done what You promised (Genesis 28:15) — so I am holding You to Your own word tonight."
+Wrong: "God promises never to abandon His people. This is a comfort in dark times."
+
+3. BUILD ON THE PRINCIPLE AND THE GOD SHOT.
+Each corpus entry gives a Principle (the theological substance, carrying the scriptural language itself) and each source ends with a God Shot (what the chapter reveals about God's character). These two are the raw material of the prayer. Pray the Principle as address and pray the God Shot as adoration — turn "God is the one who wrestles" into "You are the One who wrestles with me". Do not restate them as observations.
+
+4. NEVER INVENT SCRIPTURE.
+Quote only what appears in the CORPUS PASSAGES provided, and cite only the references supplied there. Do not reconstruct verses from memory, do not adjust wording to fit, and do not cite a reference that is not in the passages given. If you need something the corpus does not supply, allude to it without quoting or citing.
+
+5. NO COMMENTARY.
+Do not explain what the prayer is doing. Do not introduce sections with description. Do not summarise afterwards. Section headings are the only non-prayer text permitted.
+
+6. HONOUR LEAP FLAGS.
+If a corpus principle carries a LEAP FLAG, do not build a confident claim on it. Either avoid it or pray it with the tentativeness the flag indicates.
+
+Aim for at least one direct, cited quotation per section, and more where the section is long. A section with no scriptural anchor has failed.
+═══════════════════════════════════════════════`
 
   // ── Night Watch: two postures, one shape ──
   // Written as MOVEMENTS deliberately. In stage 2 each movement becomes its own
@@ -261,26 +296,26 @@ The governing texts: Psalm 134 — the servants who stand by night in the house 
 
 Write in the register of the night: quieter, slower, fewer words per sentence than a daytime prayer. The night has its own acoustics. Do not fill the silence.
 
-MOVEMENTS:
+MOVEMENTS — every one is addressed to God, every one anchors on a cited corpus passage:
 
 **THE WAKING**
-Acknowledge the hour honestly — that they are awake, and what being awake at this hour is like. Do not rush to spiritualise it. If sleep will not come, say so. If they rose deliberately, honour that. 2-3 sentences.
+Tell God simply that you are awake. Address Him directly. Do not describe the night or spiritualise the hour. 2-3 sentences. Anchor on one cited passage.
 
 **THE STILLNESS**
-Before anything is said to God, be quiet with Him. This movement resists the instinct to make prayer productive. Draw on the corpus passages about God's presence and character — not what He gives, who He is. 4-5 sentences, unhurried. Let there be space.
+Pray back to God what the corpus passages say He is. This movement is mostly quotation — take the statements about His character and presence and say them to Him. Not what He gives; who He is. 4-5 sentences, at least two cited quotations. Unhurried. Short sentences.
 
 **THE LISTENING**
-1 Samuel 3 — Samuel needed to be told how to answer. This movement turns from speaking to listening, and does not pretend to have heard something. Name the willingness to hear without manufacturing a word from God. 3-4 sentences.
+Pray Samuel's words if 1 Samuel 3 is supplied — "Speak, for your servant hears" — quoted and cited. Tell God you are listening. Do NOT manufacture a reply from Him or claim to have heard anything. 3-4 sentences with a cited anchor.
 
 **THE KEEPING**
-Psalm 134 — the night servants bless the Lord simply by being there. Name what is being kept watch over: a person, a burden, a silence, or nothing at all but God Himself. This is not intercession — it is presence. 3-4 sentences.
+Pray Psalm 134's posture if supplied — the servants who stand by night and bless the Lord. Tell God what you are keeping watch over, or that you are keeping watch over nothing but Him. This is presence, not petition. 3-4 sentences, at least one cited quotation.
 
 **THE ENTRUSTING**
-Close by handing the night back. Psalm 4:8 — "In peace I will both lie down and sleep." Not resolution, not answers — release. If they will sleep, bless the sleep. If they will not, bless the waking. 2-3 sentences.
+Hand the night back to God in His own words — quote and cite a passage of rest or trust from the corpus (Psalm 4:8 if supplied). Release, not resolution. 2-3 sentences.
 
 Close: "In Jesus' Name, Amen."
 
-Total: 400-550 words. Quiet, unhurried, non-instrumental. Do NOT petition. Do NOT resolve. Do NOT manufacture a word from God on His behalf.
+Total: 400-550 words. Quiet, unhurried, non-instrumental. Do NOT petition. Do NOT resolve. Do NOT manufacture a word from God on His behalf. If any movement contains no quoted Scripture, that movement has failed.
 
 CORPUS PASSAGES:
 ${contextBlock}`,
@@ -302,29 +337,29 @@ CRITICAL THEOLOGICAL BOUNDARIES:
 - Jacob did not win. He was overpowered, marked, and renamed — and called that blessing.
 - Do NOT generate speculative demonology or treat the night hours as a time of heightened demonic activity requiring special counter-measures.
 
-MOVEMENTS:
+MOVEMENTS — every one is addressed to God, every one anchors on a cited corpus passage:
 
 **THE WAKING**
-Name the hour and why they are in it — what has them awake and holding on. Honest, not dramatic. 2-3 sentences.
+Tell God plainly that you are awake and why. Address Him — "I am awake at this hour because…". No scene-setting, no description of the night. 2-3 sentences. Anchor on one cited passage.
 
 **THE GRIP**
-Genesis 32 — "I will not let you go unless you bless me." Name specifically what is being held onto and why it has not been released. This is the movement that gives the contending its voice. 4-5 sentences drawn from the corpus passages.
+Pray Jacob's words as your own: "I will not let you go unless you bless me" (quote and cite from the corpus if Genesis 32 is supplied). Then tell God specifically what you are holding onto and why you have not released it. Speak to Him, not about the situation. 4-5 sentences, at least two cited quotations.
 
 **THE HONEST DURATION**
-Acknowledge how long this has gone unanswered. Do not paper over delay. Luke 18's widow kept coming because nothing had changed yet. Name the waiting truthfully — including, if it applies, that morning may come without the answer. 3-4 sentences.
+Tell God how long this has gone unanswered. Ask Him directly — "How long…?" is a prayer, not a complaint about Him. Do not soften the delay and do not explain the delay's purpose on His behalf. 3-4 sentences with at least one cited anchor.
 
 **THE GROUND**
-On what basis is this prayer made? Not the person's persistence, not the hour, not their intensity — but what God has said and what Christ has accomplished. This movement deliberately relocates the confidence away from the praying and onto God's character. 4-5 sentences, grounded in specific corpus principles.
+Say back to God what He has said. This movement is almost entirely quotation: take the covenant statements and the declarations about Christ's finished work from the corpus passages and pray them to Him as the reason you are still asking. Confidence rests on His word, never on your persistence or the hour. 4-5 sentences, at least three cited quotations — this is the most heavily anchored movement in the prayer.
 
 **THE HOLDING**
-Speak the contending itself — specific, named, addressed to God rather than performed. "I am still asking…" "I am not letting go of…" 4-5 sentences.
+Speak the asking itself, plainly and specifically. "I am still asking You for…" "I am not letting go of…" Name the actual thing. 4-5 sentences, each tied to something God has said.
 
 **THE BREAKING OF THE DAY**
-Jacob's night ended with a limp and a new name, not with him winning. Close by holding both: the resolve to keep holding on, and the willingness to be changed rather than merely answered. 3-4 sentences. Do NOT promise breakthrough by morning.
+Jacob ended the night with a limp and a new name, not a victory. Pray both: that you will keep holding on, and that you are willing to be changed rather than merely answered. 3-4 sentences with a cited anchor. Do NOT promise breakthrough by morning.
 
 Close: "In Jesus' Name, Amen."
 
-Total: 550-700 words. Contending but not striving. Persistent without treating persistence as leverage over God.
+Total: 550-700 words. Contending but not striving. Persistent without treating persistence as leverage over God. If any movement contains no quoted Scripture, that movement has failed.
 
 CORPUS PASSAGES:
 ${contextBlock}`,
@@ -587,7 +622,10 @@ ${contextBlock}`,
   const fmt = formats[mode]
   return {
     prompt: base + fmt.instructions,
-    maxTokens: fmt.maxTokens,
+    // Word-anchored prayer carries inline quotations and parenthetical
+    // citations, which cost roughly a third more output than the same prayer in
+    // plain prose. Without this headroom the longer modes truncate mid-prayer.
+    maxTokens: Math.round(fmt.maxTokens * 1.35),
   }
 }
 
@@ -746,7 +784,10 @@ export default function PrayerPage() {
           selectedThemes: getModeThemes(mode),
         })
 
-    const contextBlock = buildContextBlock(chapters)
+    // Rich mode: supplies verse-level citations, the principle text, and leap
+    // flags. Prayer needs these to anchor on the Word; devotion and Ask keep
+    // the standard block.
+    const contextBlock = buildContextBlock(chapters, { rich: true })
     const name = profile?.name || 'the reader'
     const occ  = profile?.occupation || 'daily life'
     const { prompt, maxTokens } = buildPrayerPrompt(mode, situation, name, occ, contextBlock, posture)

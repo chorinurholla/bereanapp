@@ -2,7 +2,10 @@
 export interface Principle {
   title: string
   verse_reference?: string
+  principle?: string
   application?: string
+  leap_flag?: string
+  cross_ref?: string
 }
 
 export interface CorpusChapter {
@@ -197,22 +200,75 @@ export function retrieve(
   return results
 }
 
-export function buildContextBlock(chapters: CorpusChapter[]): string {
+// Corpus verse_reference values are chapter-relative ("v. 15", "vv. 27–28").
+// Combining them with the properly-cased `book` field and the chapter number
+// yields a citable reference ("Genesis 32:27–28"). Without this the model only
+// ever sees chapter-level references and invents verse numbers when asked to
+// cite — so this function is what makes accurate citation possible at all.
+// Every one of the 4,065 `principle` values ends with the modern application
+// appended after a "- **Modern application:**" marker — the same text that is
+// also stored in `application`. Emitting both duplicates it verbatim and
+// undercuts the instruction to pray the principle rather than the application,
+// so the tail is split off here. Marker is 100% consistent across the corpus.
+const MODERN_APP_MARKER = /[-*\s]*\*\*Modern application[:*\s]*/i
+
+function principleCore(raw?: string): string {
+  if (!raw) return ''
+  return raw.split(MODERN_APP_MARKER)[0].trim()
+}
+
+function fullCitation(c: CorpusChapter, verseRef?: string): string {
+  const chapNum  = (c.reference || c.ref || '').match(/(\d+)\s*$/)?.[1] || ''
+  const bookChap = [c.book, chapNum].filter(Boolean).join(' ')
+  if (!verseRef) return bookChap
+  const verses = verseRef.replace(/^vv?\.\s*/i, '').trim()
+  return verses ? `${bookChap}:${verses}` : bookChap
+}
+
+/**
+ * Build the retrieved-corpus context passed to the model.
+ *
+ * `rich` mode additionally emits verse-level citations, the `principle` field
+ * (the substantive theological content, which frequently carries quoted
+ * scriptural language) and any interpretive leap flags. Default mode is
+ * unchanged so devotion and Ask keep their existing context size and behaviour.
+ *
+ * Standard mode sends only principle title + application — and `application` is
+ * the modern-application prose. Asking for scripturally anchored prayer while
+ * supplying only application prose is what produces narrative output.
+ */
+export function buildContextBlock(
+  chapters: CorpusChapter[],
+  opts: { rich?: boolean } = {},
+): string {
+  const { rich = false } = opts
+
   return chapters.map((c, i) => {
     const ref     = c.reference || c.ref || ''
     const title   = c.chapter_title || c.title || ''
     const obs     = c.observation || c.content || ''
     const godShot = c.god_shot || c.godShot || ''
     const themes  = c.themes.join(', ')
-    const pLines  = c.principles.map((p, pi) => {
-      if (typeof p === 'object') {
+
+    const pLines = c.principles.map((p, pi) => {
+      if (typeof p !== 'object') return `• ${p}`
+
+      if (!rich) {
         return `${pi+1}. ${p.title}${p.application ? ' — ' + p.application : ''}`
       }
-      return `• ${p}`
+
+      const cite = fullCitation(c, p.verse_reference)
+      const core = principleCore(p.principle)
+      return [
+        `${pi+1}. [${cite}] ${p.title}`,
+        core        ? `   Principle: ${core}`          : '',
+        p.cross_ref ? `   Cross-ref: ${p.cross_ref}`   : '',
+        p.leap_flag ? `   LEAP FLAG: ${p.leap_flag}`   : '',
+      ].filter(Boolean).join('\n')
     }).join('\n')
 
     return [
-      `SOURCE ${i+1}: ${ref} — "${title}"`,
+      `SOURCE ${i+1}: ${rich ? fullCitation(c) : ref} — "${title}"`,
       `Themes: ${themes}`,
       obs     ? `Observation: ${obs}` : '',
       `Principles:\n${pLines}`,
